@@ -1,44 +1,44 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.30;
+pragma solidity 0.8.30;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Whitelist is Ownable {
-    mapping(address => bool) isWhitelisted;
-    mapping(address => uint256) whitelistCount;
-
+    mapping(address => bool) public isWhitelisted;
+    mapping(address => uint256) private addressToIndex;
+    uint256 public immutable maxWhitelistedAddresses;
     address[] public whitelistedAddresses;
 
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    event removedFromWhitelist(address indexed _address);
+    event addedToWhitelist(address indexed _address);
 
-    function addToWhitelist(address _address) external {
+    constructor(address initialOwner, uint256 _maxWhitelistedAddresses) Ownable(initialOwner) {
+        maxWhitelistedAddresses = _maxWhitelistedAddresses;
+    }
+
+    function addToWhitelist(address _address) external onlyOwner{
         require(!isWhitelisted[_address], "Address is already whitelisted");
+        require(whitelistedAddresses.length == maxWhitelistedAddresses, "Whitelist is already full");
         isWhitelisted[_address] = true;
         whitelistedAddresses.push(_address);
-        whitelistCount[_address]++;
+        emit addedToWhitelist(_address);
     }
 
     function removeFromWhitelist(
         address _address
-    ) external onlyOwner returns (address removed) {
+    ) external onlyOwner {
         require(isWhitelisted[_address], "Address is not whitelisted");
         isWhitelisted[_address] = false;
-        whitelistCount[_address] = 0;
+        uint256 indexToRemove = addressToIndex[_address];
+        uint256 lastIndex = whitelistedAddresses.length - 1;
 
-        uint256 iToRemove = 0;
-        bool found = false;
-
-        for(uint256 i = 0; i < whitelistedAddresses.length; i++){
-            if(whitelistedAddresses[i] = _address){
-                iToRemove = i;
-                found = true;
-                break;
-            }
-        }
-        require(found, "address not found in array");
-        if(index != whitelistedAddresses.length - 1) {
-            whitelistedAddresses[iToRemove] = whitelistedAddresses[whitelistedAddresses.length - 1];
-        }
+        if(indexToRemove != lastIndex){
+            address lastAddress = whitelistedAddresses[lastIndex];
+            whitelistedAddresses[indexToRemove] = lastAddress;
+            addressToIndex[lastAddress] = indexToRemove;
+         }
+         
         whitelistedAddresses.pop();
-        return _address;
+        emit removedFromWhitelist(_address);
     }
+}
