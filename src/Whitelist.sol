@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Whitelist is Ownable {
     mapping(address => bool) public isWhitelisted;
     mapping(address => uint256) private addressToIndex;
-    uint256 public immutable maxWhitelistedAddresses;
+    uint256 public maxWhitelistedAddresses;
     address[] public whitelistedAddresses;
 
     event removedFromWhitelist(address indexed _address);
@@ -18,7 +18,7 @@ contract Whitelist is Ownable {
 
     function addToWhitelist(address _address) external onlyOwner{
         require(!isWhitelisted[_address], "Address is already whitelisted");
-        require(whitelistedAddresses.length == maxWhitelistedAddresses, "Whitelist is already full");
+        require(whitelistedAddresses.length < maxWhitelistedAddresses, "Whitelist is already full");
         isWhitelisted[_address] = true;
         whitelistedAddresses.push(_address);
         emit addedToWhitelist(_address);

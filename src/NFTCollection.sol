@@ -42,28 +42,59 @@ contract NFTCollection is ERC721, ReentrancyGuard{
 
         reservedTokensClaimed++;
         isMinted[to] = true;
-        initializeTree(tokenId);  
-        emit Mint(to, tokenId);
-        _safeMint(to, tokenId);
-    }
 
-    function initializeTree(uint256 tokenId) internal{
         treeData[tokenId] = TreeData({
             plantedTimestamp: block.timestamp,
             lastWateredTimestamp: block.timestamp,
             growthStage: 0, 
             wateringCount: 0
         });
+        
+        _safeMint(to, tokenId);  
         emit treeInitialized(tokenId, ownerOf(tokenId), block.timestamp);
+        emit Mint(to, tokenId);
+         
+        
     }
 
-
     function withdraw(uint256 amount) external nonReentrant{
+        require(msg.sender != address(0), "cannot be address 0");
         require(amount <= address(this).balance, "Insufficient balance");
         require(whitelist.isWhitelisted(msg.sender), "not whitelisted");
         (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
 
         emit Withdraw(msg.sender, amount);
+    }
+
+    function getTreeData(uint256 tokenId) external view returns(
+        uint256 plantedTimestamp,
+        uint256 lastWateredTimestamp,
+        uint8 growthStage,
+        uint16 wateringCount
+        )
+        {
+            require(ownerOf(tokenId) != address(0), "token not minted yet");
+            TreeData storage tree = treeData[tokenId];
+            return(
+                tree.plantedTimestamp,
+                tree.lastWateredTimestamp,
+                tree.growthStage,
+                tree.wateringCount
+            );
+    }
+
+    function updateTreeAfterWatering(
+        uint256 tokenId
+        ) external returns(
+            uint16 newWateringCount,
+            uint8 newGrowthStage)
+        {
+            
+            require(ownerOf(tokenId) != address(0), "token not minted yet");
+            TreeData storage tree = treeData[tokenId];
+            tree.lastWateredTimestamp = block.timestamp;
+            tree.wateringCount = newWateringCount;
+            tree.growthStage = newGrowthStage;
     }
 }

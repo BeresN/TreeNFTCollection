@@ -9,7 +9,6 @@ contract TreeGrowthStages is ReentrancyGuard {
     uint256 public constant wateringCost = 0.0001 ether;
     uint256 public constant wateringCooldown = 1 days;
     NFTCollection immutable nftContract;
-    NFTCollection.TreeData[] internal treeData;
 
     event treeGrowthStageUpdate(uint256 tokenId, uint8 newStage);
     event treeWatered(uint256 tokenId, uint8 growthStage, uint256 wateringCount);
@@ -20,7 +19,8 @@ contract TreeGrowthStages is ReentrancyGuard {
     }
 
     function wateringTree(uint256 tokenId) external payable nonReentrant(){
-        NFTCollection.TreeData storage tree = treeData[tokenId];
+        uint256 tree = nftContract.getTreeData(plantedTimestamp, lastWateredTimestamp, growthStage, wateringCount);
+        uint16 waterTree = nftContract.updateTreeAfterWatering(tokenId);
         require(nftContract.ownerOf(tokenId) == msg.sender, "only owner can water the tree");
         require(msg.value >= wateringCost, "insufficient payment");
         require(block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
@@ -34,7 +34,7 @@ contract TreeGrowthStages is ReentrancyGuard {
     }
 
     function calculateGrowthStages(uint256 tokenId) public{
-        NFTCollection.TreeData storage tree = treeData[tokenId];
+        uint256 tree = nftContract.getTreeData(tokenId);
         uint256 ageInDays = (block.timestamp - tree.plantedTimestamp) / 1 days;
 
         uint8 newStage;
@@ -57,4 +57,5 @@ contract TreeGrowthStages is ReentrancyGuard {
         }
         
     }
+
 }
