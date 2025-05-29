@@ -60,9 +60,9 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable{
     }
 
     function withdraw(uint256 amount) external nonReentrant onlyOwner{
+        _checkOwner();
         require(msg.sender != address(0), "cannot be address 0");
         require(amount <= address(this).balance, "Insufficient balance");
-        require(msg.sender == onlyOwner(), "user is not the owner");
         (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
 

@@ -1,42 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import "./NFTCollection.sol";
+import {NFTCollection} from "./NFTCollection.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 
-contract TreeGrowthStages is ReentrancyGuard {
+contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
     uint256 public constant wateringCost = 0.0001 ether;
     uint256 public constant wateringCooldown = 1 days;
-    NFTCollection immutable nftContract;
+    NFTCollection immutable nftContract; 
 
     event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
 
-    constructor(address _nftContract){
-        require(_nftContract != address(0), "cannot be 0 address");
-        nftContract = NFTCollection(_nftContract);
+    constructor(address _whitelistContract) NFTCollection(_whitelistContract) {
     }
 
     function wateringTree(uint256 tokenId) external payable nonReentrant(){
-        (
-            uint256 plantedTimestamp,
-            uint256 lastWateredTimestamp,
-            uint8 growthStage,
-            uint16 wateringCount
-        ) = nftContract.getTreeData(tokenId);
-        
-        require(nftContract.ownerOf(tokenId) == msg.sender, "only owner can water the tree");
+        require(ownerOf(tokenId) == msg.sender, "only owner can water the tree");
+        TreeData storage tree = treeData[tokenId];
         require(msg.value <= wateringCost, "insufficient payment");
-        require(block.timestamp >= lastWateredTimestamp + wateringCooldown, "tree was already watered");
+        require(block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
 
-        lastWateredTimestamp = block.timestamp;
-        uint16 newWateringCount = wateringCount + 1;
+        tree.lastWateredTimestamp = block.timestamp;
+        uint16 newWateringCount = tree.wateringCount + 1;
         uint8 calculatedNewStage = calculateGrowthStages( 
-            plantedTimestamp,
+            tree.plantedTimestamp,
             newWateringCount 
         );
 
-        uint8 checkIfStageIsUpdated = calculatedNewStage > growthStage ? calculatedNewStage : growthStage;
+        uint8 checkIfStageIsUpdated = calculatedNewStage > tree.growthStage ? calculatedNewStage : tree.growthStage;
 
         nftContract.updateTreeData(
             tokenId,

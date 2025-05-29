@@ -19,8 +19,11 @@ contract Whitelist is Ownable {
     function addToWhitelist(address _address) external onlyOwner{
         require(!isWhitelisted[_address], "Address is already whitelisted");
         require(whitelistedAddresses.length < maxWhitelistedAddresses, "Whitelist is already full");
+        
+        addressToIndex[_address] = whitelistedAddresses.length;  
+        whitelistedAddresses.push(_address);  
         isWhitelisted[_address] = true;
-        whitelistedAddresses.push(_address);
+
         emit addedToWhitelist(_address);
     }
 
@@ -28,7 +31,6 @@ contract Whitelist is Ownable {
         address _address
     ) external onlyOwner {
         require(isWhitelisted[_address], "Address is not whitelisted");
-        isWhitelisted[_address] = false;
         uint256 indexToRemove = addressToIndex[_address];
         uint256 lastIndex = whitelistedAddresses.length - 1;
 
@@ -39,6 +41,12 @@ contract Whitelist is Ownable {
          }
          
         whitelistedAddresses.pop();
+        delete addressToIndex[_address]; 
+        isWhitelisted[_address] = false;
         emit removedFromWhitelist(_address);
+    }
+
+    function getWhitelistedAddresses() external view returns (address[] memory) {
+        return whitelistedAddresses;
     }
 }
