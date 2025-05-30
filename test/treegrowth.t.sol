@@ -6,366 +6,344 @@ import "../src/TreeGrowthStages.sol";
 import "../src/NFTCollection.sol";
 import "../src/Whitelist.sol";
 
-contract TreeGrowthTest is Test {
+contract TreeGrowthStagesTest is Test {
     TreeGrowthStages public treeGrowth;
-    NFTCollection public nftCollection;
     Whitelist public whitelist;
     
-    address public owner = address(0x1);
-    address public user1 = address(0x2);
-    address public user2 = address(0x3);
-    address public nonOwner = address(0x4);
+    address public owner;
+    address public user1;
+    address public user2;
+    address public nonOwner;
     
     uint256 public constant WATERING_COST = 0.0001 ether;
     uint256 public constant WATERING_COOLDOWN = 1 days;
     uint256 public constant NFT_PRICE = 0.001 ether;
     
+    event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
+    
     function setUp() public {
-        vm.startPrank(owner);
+        owner = makeAddr("owner");
+        user1 = makeAddr("user1");
+        user2 = makeAddr("user2");
+        nonOwner = makeAddr("nonOwner");
         
-        // Deploy Whitelist contract
-        whitelist = new Whitelist(owner, 5);
+        // Give users some ETH
+        vm.deal(owner, 10 ether);
+        vm.deal(user1, 1 ether);
+        vm.deal(user2, 1 ether);
+        vm.deal(nonOwner, 1 ether);
         
-        // Deploy NFTCollection contract
-        nftCollection = new NFTCollection(address(whitelist));
+        // Deploy whitelist contract
+        vm.prank(owner);
+        whitelist = new Whitelist(owner, 10);
         
-        // Deploy TreeGrowthStages contract
-        treeGrowth = new TreeGrowthStages(address(nftCollection));
-
-        (
-            uint256 plantedTimestamp,
-            uint256 lastWateredTimestamp,
-            uint8 growthStage,
-            uint16 wateringCount
-        ) = nftCollection.treeData(tokenId);
+        // Deploy TreeGrowthStages contract (which inherits from NFTCollection)
+        vm.prank(owner);
+        treeGrowth = new TreeGrowthStages(address(whitelist));
         
         // Add users to whitelist
+        vm.startPrank(owner);
         whitelist.addToWhitelist(user1);
         whitelist.addToWhitelist(user2);
-        whitelist.addToWhitelist(owner);
-        
         vm.stopPrank();
         
-        // Fund test accounts
-        vm.deal(user1, 10 ether);
-        vm.deal(user2, 10 ether);
-        vm.deal(nonOwner, 10 ether);
+        // Mint NFTs for testing
+        vm.prank(user1);
+        treeGrowth.mint{value: NFT_PRICE}(user1);
+        
+        vm.prank(user2);
+        treeGrowth.mint{value: NFT_PRICE}(user2);
     }
     
-    function testNFTContractTreeDataWorks() public {
-        // Test that the NFT contract properly stores tree data
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Get tree data from NFT contract (this should work)
-        (
-            uint256 plantedTimestamp,
-            uint256 lastWateredTimestamp,
-            uint8 growthStage,
-            uint16 wateringCount
-        ) = nftCollection.treeData(tokenId);
-        
-        assertEq(growthStage, 0);
-        assertEq(wateringCount, 0);
-        assertGt(plantedTimestamp, 0);
-        assertEq(lastWateredTimestamp, plantedTimestamp);
+    // Constructor and Basic Tests
+    function testInheritance() public {
+        // Verify the contract properly inherits NFTCollection functionality
+        assertEq(treeGrowth.ownerOf(1), user1);
+        assertEq(treeGrowth.ownerOf(2), user2);
+        assertEq(treeGrowth.balanceOf(user1), 1);
+        assertEq(treeGrowth.balanceOf(user2), 1);
     }
     
-    function testWateringTreeSuccess() public {
-        // First mint an NFT
+    // Watering Tests
+    function testWateringTreeBasic() public {
         vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
+        vm.expectEmit(true, false, false, true);
+        emit treeGrowthCalculation(1, 0, 1); // Should remain stage 0 after first watering
         
-        uint256 tokenId = 1;
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
         
-        // Water the tree
-        vm.prank(user1);
-        vm.expectEmit(true, true, true, true);
-        emit TreeGrowthStages.treeWatered(tokenId, 0, 1);
-        treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-        uint256 tokenId = 1;
-        // Check tree data
-        assertEq(nftCollection.treeData(tokenId).wateringCount, 1);
-        assertEq(nftCollection.treeData(tokenId).lastWateredTimestamp, block.timestamp);
+        // Verify tree data updated
+        (, uint256 lastWatered, uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(lastWatered, block.timestamp);
+        assertEq(stage, 0); // Still seedling
+        assertEq(count, 1);
     }
     
-    function testWateringTreeOnlyOwner() public {
-        // Mint NFT to user1
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Try to water tree as non-owner
-        vm.prank(nonOwner);
-        vm.expectRevert("only owner can water the tree");
-        treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-    }
-    
-    function testWateringTreeInsufficientPayment() public {
-        // Mint NFT
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Try to water with insufficient payment
+    function testWateringTreeRevertsInsufficientPayment() public {
         vm.prank(user1);
         vm.expectRevert("insufficient payment");
-        treeGrowth.wateringTree{value: WATERING_COST - 1}(tokenId);
+        treeGrowth.wateringTree{value: WATERING_COST - 1}(1);
     }
     
-    function testWateringTreeCooldown() public {
-        // Mint NFT
+    function testWateringTreeRevertsNotOwner() public {
+        vm.prank(user2);
+        vm.expectRevert("only owner can water the tree");
+        treeGrowth.wateringTree{value: WATERING_COST}(1); // user2 trying to water user1's tree
+    }
+    
+    function testWateringTreeRevertsCooldown() public {
+        // First watering
         vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Water the tree first time
-        vm.prank(user1);
-        treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
         
         // Try to water again immediately
         vm.prank(user1);
         vm.expectRevert("tree was already watered");
-        treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-        
-        // Fast forward time by cooldown period
-        vm.warp(block.timestamp + WATERING_COOLDOWN);
-        
-        // Should be able to water again
-        vm.prank(user1);
-        treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
     }
     
-       function testGrowthStageProgression() public {
-        // Mint NFT
+    function testWateringAfterCooldown() public {
+        // First watering
         vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
         
-        uint256 tokenId = 1;
+        // Fast forward past cooldown
+        vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         
-        // Test Seedling to Sapling (7 days + 5 waterings)
-        for (uint256 i = 0; i < 5; i++) {
-            vm.prank(user1);
-            treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-            vm.warp(block.timestamp + WATERING_COOLDOWN);
+        // Second watering should work
+        vm.prank(user1);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
+        
+        (, , , uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(count, 2);
+    }
+    
+    // Growth Stage Calculation Tests
+    function testGrowthStagesSeedling() public {
+        // New tree should be seedling (stage 0)
+        (, , uint8 stage, ) = treeGrowth.getTreeData(1);
+        assertEq(stage, 0);
+        
+        // Water a few times but not enough to advance
+        vm.startPrank(user1);
+        for (uint i = 0; i < 4; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
+        vm.stopPrank();
         
-        // Fast forward 7 days
+        (, , stage, ) = treeGrowth.getTreeData(1);
+        assertEq(stage, 0); // Still seedling
+    }
+    
+    function testGrowthStagesSapling() public {
+        vm.startPrank(user1);
+        
+        // Fast forward 1 week
         vm.warp(block.timestamp + 7 days);
         
-        // Calculate growth stage
-        treeGrowth.calculateGrowthStages(tokenId);
-        
-        NFTCollection.TreeData memory tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.growthStage, 1); // Should be Sapling
-    }
-    
-    function testGrowthStageToYoungTree() public {
-        // Mint NFT
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Water 15 times
-        for (uint256 i = 0; i < 15; i++) {
-            vm.prank(user1);
-            treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-            vm.warp(block.timestamp + WATERING_COOLDOWN);
+        // Water 5 times to reach sapling stage
+        for (uint i = 0; i < 5; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
         
-        // Fast forward 30 days
+        vm.stopPrank();
+        
+        (, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(stage, 1); // Sapling
+        assertEq(count, 5);
+    }
+    
+    function testGrowthStagesYoungTree() public {
+        vm.startPrank(user1);
+        
+        // Fast forward 1 month
         vm.warp(block.timestamp + 30 days);
         
-        vm.expectEmit(true, true, true, true);
-        emit TreeGrowthStages.treeGrowthStageUpdate(tokenId, 2);
-        treeGrowth.calculateGrowthStages(tokenId);
-        
-        NFTCollection.TreeData memory tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.growthStage, 2); // Should be Young tree
-    }
-    
-    function testGrowthStageToMatureTree() public {
-        // Mint NFT
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Water 50 times
-        for (uint256 i = 0; i < 50; i++) {
-            vm.prank(user1);
-            treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-            vm.warp(block.timestamp + WATERING_COOLDOWN);
+        // Water 15 times to reach young tree stage
+        for (uint i = 0; i < 15; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 14) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
         
-        // Fast forward 180 days
+        vm.stopPrank();
+        
+        (, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(stage, 2); // Young tree
+        assertEq(count, 15);
+    }
+    
+    function testGrowthStagesMatureTree() public {
+        vm.startPrank(user1);
+        
+        // Fast forward 6 months
         vm.warp(block.timestamp + 180 days);
         
-        vm.expectEmit(true, true, true, true);
-        emit TreeGrowthStages.treeGrowthStageUpdate(tokenId, 3);
-        treeGrowth.calculateGrowthStages(tokenId);
-        
-        NFTCollection.TreeData memory tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.growthStage, 3); // Should be Mature tree
-    }
-    
-    function testGrowthStageToAncientTree() public {
-        // Mint NFT
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Water 100 times
-        for (uint256 i = 0; i < 100; i++) {
-            vm.prank(user1);
-            treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-            vm.warp(block.timestamp + WATERING_COOLDOWN);
+        // Water 50 times to reach mature tree stage
+        for (uint i = 0; i < 50; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 49) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
         
-        // Fast forward 365 days
+        vm.stopPrank();
+        
+        (, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(stage, 3); // Mature tree
+        assertEq(count, 50);
+    }
+    
+    function testGrowthStagesAncientTree() public {
+        vm.startPrank(user1);
+        
+        // Fast forward 1 year
         vm.warp(block.timestamp + 365 days);
         
-        vm.expectEmit(true, true, true, true);
-        emit TreeGrowthStages.treeGrowthStageUpdate(tokenId, 4);
-        treeGrowth.calculateGrowthStages(tokenId);
+        // Water 100 times to reach ancient tree stage
+        for (uint i = 0; i < 100; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 99) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
+        }
         
-        NFTCollection.TreeData memory tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.growthStage, 4); // Should be Ancient tree
+        vm.stopPrank();
+        
+        (, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(stage, 4); // Ancient tree
+        assertEq(count, 100);
     }
     
-    function testGrowthStageNoRegression() public {
-        // Mint NFT
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
+    // Edge Cases for Growth Stages
+    function testGrowthStageRequiresBothAgeAndWatering() public {
+        vm.startPrank(user1);
         
-        uint256 tokenId = 1;
+        // Test sapling requirements: 7+ days AND 5+ waterings
         
-        // Reach Sapling stage
-        for (uint256 i = 0; i < 5; i++) {
-            vm.prank(user1);
-            treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-            vm.warp(block.timestamp + WATERING_COOLDOWN);
+        // Only age, no watering
+        vm.warp(block.timestamp + 10 days);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
+        (, , uint8 stage, ) = treeGrowth.getTreeData(1);
+        assertEq(stage, 0); // Still seedling (only 1 watering)
+        
+        // Reset and test only watering, no age
+        vm.stopPrank();
+        
+        // Mint new tree for clean test
+        address user3 = makeAddr("user3");
+        vm.deal(user3, 1 ether);
+        vm.prank(owner);
+        whitelist.addToWhitelist(user3);
+        vm.prank(user3);
+        treeGrowth.mint{value: NFT_PRICE}(user3);
+        
+        vm.startPrank(user3);
+        // Water 5 times but no time passed
+        for (uint i = 0; i < 5; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(3);
+            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
+        
+        (, , stage, ) = treeGrowth.getTreeData(3);
+        assertEq(stage, 0); // Still seedling (not enough age)
+        
+        vm.stopPrank();
+    }
+    
+    function testGrowthStageNeverDowngrades() public {
+        vm.startPrank(user1);
+        
+        // Advance to sapling
         vm.warp(block.timestamp + 7 days);
-        treeGrowth.calculateGrowthStages(tokenId);
-        
-        NFTCollection.TreeData memory tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.growthStage, 1);
-        
-        // Calculate again - should not emit event or change stage
-        vm.recordLogs();
-        treeGrowth.calculateGrowthStages(tokenId);
-        
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        // Should not emit treeGrowthStageUpdate event
-        bool foundGrowthUpdate = false;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == 
-                keccak256("treeGrowthStageUpdate(uint256,uint8)")) {
-                foundGrowthUpdate = true;
-                break;
-            }
+        for (uint i = 0; i < 5; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
-        assertFalse(foundGrowthUpdate);
         
-        tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.growthStage, 1); // Should remain the same
+        (, , uint8 stage, ) = treeGrowth.getTreeData(1);
+        assertEq(stage, 1); // Sapling
+        
+        // Continue watering but don't advance time enough for next stage
+        for (uint i = 0; i < 5; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
+        }
+        
+        (, , stage, ) = treeGrowth.getTreeData(1);
+        assertEq(stage, 1); // Should remain sapling, never downgrade
+        
+        vm.stopPrank();
     }
     
-    function testGetTreeData() public {
-        // Mint NFT
+    // Payment and Ether Handling Tests
+    function testWateringWithExactPayment() public {
         vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
         
-        uint256 tokenId = 1;
-        
-        // Water the tree
-        vm.prank(user1);
-        treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-        
-        NFTCollection.TreeData memory tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.wateringCount, 1);
-        assertEq(tree.growthStage, 0);
-        assertEq(tree.lastWateredTimestamp, block.timestamp);
+        // Contract should receive the payment
+        assertEq(address(treeGrowth).balance, NFT_PRICE * 2 + WATERING_COST); // 2 mints + 1 watering
     }
     
-    function testMultipleTreesIndependentGrowth() public {
-        // Mint NFTs to different users
+    function testWateringAcceptsExcessPayment() public {
         vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
+        treeGrowth.wateringTree{value: WATERING_COST * 2}(1);
         
+        // Should work with excess payment
+        (, , , uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(count, 1);
+    }
+    
+    // Integration Tests
+    function testMultipleUsersWateringTrees() public {
+        // User1 waters their tree
+        vm.prank(user1);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
+        
+        // User2 waters their tree
         vm.prank(user2);
-        nftCollection.mint{value: NFT_PRICE}(user2);
+        treeGrowth.wateringTree{value: WATERING_COST}(2);
         
-        uint256 tokenId1 = 1;
-        uint256 tokenId2 = 2;
+        // Check both trees were updated independently
+        (, , , uint16 count1) = treeGrowth.getTreeData(1);
+        (, , , uint16 count2) = treeGrowth.getTreeData(2);
         
-        // Water tree 1 more than tree 2
-        for (uint256 i = 0; i < 10; i++) {
-            vm.prank(user1);
-            treeGrowth.wateringTree{value: WATERING_COST}(tokenId1);
-            vm.warp(block.timestamp + WATERING_COOLDOWN);
+        assertEq(count1, 1);
+        assertEq(count2, 1);
+    }
+    
+    // Fuzz Tests
+    function testFuzzWateringAmount(uint256 payment) public {
+        vm.assume(payment >= WATERING_COST && payment <= 1 ether);
+        
+        vm.deal(user1, payment);
+        vm.prank(user1);
+        treeGrowth.wateringTree{value: payment}(1);
+        
+        (, , , uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(count, 1);
+    }
+    
+    // Test nonexistent token
+    function testWateringNonexistentToken() public {
+        vm.prank(user1);
+        vm.expectRevert();
+        treeGrowth.wateringTree{value: WATERING_COST}(999);
+    }
+    
+    // Test event emission
+    function testTreeGrowthCalculationEvent() public {
+        vm.prank(user1);
+        
+        // Fast forward and water to reach sapling
+        vm.warp(block.timestamp + 7 days);
+        
+        // The 5th watering should emit stage 1
+        for (uint i = 0; i < 4; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
         
-        for (uint256 i = 0; i < 5; i++) {
-            vm.prank(user2);
-            treeGrowth.wateringTree{value: WATERING_COST}(tokenId2);
-            vm.warp(block.timestamp + WATERING_COOLDOWN);
-        }
-        
-        NFTCollection.TreeData memory tree1 = treeGrowth.getTreeData(tokenId1);
-        NFTCollection.TreeData memory tree2 = treeGrowth.getTreeData(tokenId2);
-        
-        assertEq(tree1.wateringCount, 10);
-        assertEq(tree2.wateringCount, 5);
-        assertTrue(tree1.wateringCount > tree2.wateringCount);
-    }
-    
-    function testReentrancyProtection() public {
-        // This test ensures the nonReentrant modifier is working
-        // In a real attack scenario, we would need a malicious contract
-        // For now, we just verify the modifier is present by checking
-        // that multiple calls in the same transaction would fail
-        
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Normal watering should work
-        vm.prank(user1);
-        treeGrowth.wateringTree{value: WATERING_COST}(tokenId);
-        
-        // Verify the watering was successful
-        NFTCollection.TreeData memory tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.wateringCount, 1);
-    }
-    
-    function testWateringWithExcessPayment() public {
-        // Mint NFT
-        vm.prank(user1);
-        nftCollection.mint{value: NFT_PRICE}(user1);
-        
-        uint256 tokenId = 1;
-        
-        // Water with more than required payment
-        vm.prank(user1);
-        treeGrowth.wateringTree{value: WATERING_COST * 2}(tokenId);
-        
-        NFTCollection.TreeData memory tree = treeGrowth.getTreeData(tokenId);
-        assertEq(tree.wateringCount, 1);
-    }
-    
-    function testConstants() public {
-        assertEq(treeGrowth.wateringCost(), WATERING_COST);
-        assertEq(treeGrowth.wateringCooldown(), WATERING_COOLDOWN);
+        // 5th watering should trigger sapling stage
+        vm.expectEmit(true, false, false, true);
+        emit treeGrowthCalculation(1, 1, 5);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
     }
 }
-

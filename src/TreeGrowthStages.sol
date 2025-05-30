@@ -8,17 +8,16 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
     uint256 public constant wateringCost = 0.0001 ether;
     uint256 public constant wateringCooldown = 1 days;
-    NFTCollection immutable nftContract; 
 
     event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
 
-    constructor(address _whitelistContract) NFTCollection(_whitelistContract) {
+    constructor(address whitelistContract) NFTCollection(whitelistContract) {
     }
 
     function wateringTree(uint256 tokenId) external payable nonReentrant(){
         require(ownerOf(tokenId) == msg.sender, "only owner can water the tree");
         TreeData storage tree = treeData[tokenId];
-        require(msg.value <= wateringCost, "insufficient payment");
+        require(msg.value >= wateringCost, "insufficient payment");
         require(block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
 
         tree.lastWateredTimestamp = block.timestamp;
@@ -30,7 +29,7 @@ contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
 
         uint8 checkIfStageIsUpdated = calculatedNewStage > tree.growthStage ? calculatedNewStage : tree.growthStage;
 
-        nftContract.updateTreeData(
+        this.updateTreeData(
             tokenId,
             newWateringCount,
             checkIfStageIsUpdated
