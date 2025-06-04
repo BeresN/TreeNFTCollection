@@ -8,10 +8,12 @@ import "./Whitelist.sol";
 
 contract NFTCollection is ERC721, ReentrancyGuard, Ownable{
     mapping(address => bool) public isMinted;
-    uint256 public constant NFT_PRICE = 0.001 ether;
+    uint256 public constant mint_price = 0.001 ether;
     uint256 public constant maxTokensId = 5;
     uint256 public reservedTokensClaimed = 0;
     Whitelist immutable whitelist;
+
+    address public initialOwner;
 
     struct TreeData {
         uint256 plantedTimestamp;
@@ -28,9 +30,11 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable{
 
 
     constructor(
+        address initialOwner_,
         address whitelistContract
     ) ERC721("Tree Collection", "TREE")
-        Ownable(msg.sender){
+        Ownable(initialOwner_){
+        initialOwner = initialOwner_;
         require(whitelistContract != address(0), "Cannot be 0 address");
         whitelist = Whitelist(whitelistContract);
     }
@@ -38,10 +42,12 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable{
         uint256 tokenId = reservedTokensClaimed + 1;
         require(to != address(0), "Invalid address");
         require(reservedTokensClaimed < maxTokensId, "No more tokens left");
-        require(msg.value >= NFT_PRICE, "Insufficient funds");
+        require(balanceOf(msg.sender)  >= mint_price, "Insufficient funds");
         require(whitelist.isWhitelisted(to), "not whitelisted");
         if(isMinted[to]) revert("Address already minted NFT");
 
+        
+        
         reservedTokensClaimed++;
         isMinted[to] = true;
 
@@ -51,16 +57,13 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable{
             growthStage: 0, 
             wateringCount: 0
         });
-        
-        _safeMint(to, tokenId);  
+
+        _safeMint(to, tokenId);
         emit treeInitialized(tokenId, ownerOf(tokenId), block.timestamp);
         emit Mint(to, tokenId);
-         
-        
     }
 
     function withdraw(uint256 amount) external nonReentrant onlyOwner{
-        _checkOwner();
         require(msg.sender != address(0), "cannot be address 0");
         require(amount <= address(this).balance, "Insufficient balance");
         (bool success,) = payable(msg.sender).call{value: amount}("");

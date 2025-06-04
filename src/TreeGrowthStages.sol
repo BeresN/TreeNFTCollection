@@ -11,7 +11,7 @@ contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
 
     event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
 
-    constructor(address whitelistContract) NFTCollection(whitelistContract) {
+    constructor(address initialOwner, address whitelistContract) NFTCollection(initialOwner, whitelistContract) {
     }
 
     function wateringTree(uint256 tokenId) external payable nonReentrant(){

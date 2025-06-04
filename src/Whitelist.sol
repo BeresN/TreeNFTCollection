@@ -1,22 +1,26 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Whitelist is Ownable {
+error OnlyOwner();
+
+contract Whitelist  {
     mapping(address => bool) public isWhitelisted;
     mapping(address => uint256) private addressToIndex;
     uint256 public maxWhitelistedAddresses;
     address[] public whitelistedAddresses;
+    address public initialOwner;
 
     event removedFromWhitelist(address indexed _address);
     event addedToWhitelist(address indexed _address);
 
-    constructor(address initialOwner, uint256 _maxWhitelistedAddresses) Ownable(initialOwner) {
+    constructor(address initialOwner, uint256 _maxWhitelistedAddresses)
+     {
+        initialOwner == msg.sender;
         maxWhitelistedAddresses = _maxWhitelistedAddresses;
     }
 
-    function addToWhitelist(address _address) external onlyOwner{
+    function addToWhitelist(address _address) external{
         require(!isWhitelisted[_address], "Address is already whitelisted");
         require(whitelistedAddresses.length < maxWhitelistedAddresses, "Whitelist is already full");
         
@@ -48,5 +52,10 @@ contract Whitelist is Ownable {
 
     function getWhitelistedAddresses() external view returns (address[] memory) {
         return whitelistedAddresses;
+    }
+
+    modifier onlyOwner(){
+        if(msg.sender != initialOwner) revert OnlyOwner();
+        _;
     }
 }
