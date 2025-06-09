@@ -24,21 +24,25 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable {
 
     event Withdraw(address indexed to, uint256 amount);
     event Mint(address indexed to, uint256 tokenId);
-    event treeInitialized(uint256 tokenId, address indexed owner, uint256 timestamp);
+    event treeInitialized(
+        uint256 tokenId,
+        address indexed owner,
+        uint256 timestamp
+    );
 
-    constructor(address whitelistContract) ERC721("Tree Collection", "TREE") Ownable(msg.sender) {
+    constructor(
+        address whitelistContract
+    ) ERC721("Tree Collection", "TREE") Ownable(msg.sender) {
         require(whitelistContract != address(0), "Cannot be 0 address");
         whitelist = Whitelist(whitelistContract);
     }
 
     function mint(address to) external payable nonReentrant {
-        uint256 tokenId = reservedTokensClaimed + 1;
         require(whitelist.isWhitelisted(to), "not whitelisted");
         require(reservedTokensClaimed < maxTokensId, "No more tokens left");
         require(msg.value >= mint_price, "Insufficient funds");
-
         if (isMinted[to]) revert("Address already minted NFT");
-
+        uint256 tokenId = reservedTokensClaimed + 1;
         reservedTokensClaimed++;
         isMinted[to] = true;
 
@@ -57,23 +61,39 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable {
     function withdraw(uint256 amount) external nonReentrant onlyOwner {
         require(msg.sender != address(0), "cannot be address 0");
         require(amount <= address(this).balance, "Insufficient balance");
-        (bool success,) = payable(msg.sender).call{value: amount}("");
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
 
         emit Withdraw(msg.sender, amount);
     }
 
-    function getTreeData(uint256 tokenId)
+    function getTreeData(
+        uint256 tokenId
+    )
         external
         view
-        returns (uint256 plantedTimestamp, uint256 lastWateredTimestamp, uint8 growthStage, uint16 wateringCount)
+        returns (
+            uint256 plantedTimestamp,
+            uint256 lastWateredTimestamp,
+            uint8 growthStage,
+            uint16 wateringCount
+        )
     {
         require(ownerOf(tokenId) != address(0), "token not minted yet");
         TreeData storage tree = treeData[tokenId];
-        return (tree.plantedTimestamp, tree.lastWateredTimestamp, tree.growthStage, tree.wateringCount);
+        return (
+            tree.plantedTimestamp,
+            tree.lastWateredTimestamp,
+            tree.growthStage,
+            tree.wateringCount
+        );
     }
 
-    function updateTreeData(uint256 tokenId, uint16 _newWateringCount, uint8 _newGrowthStage) external {
+    function updateTreeData(
+        uint256 tokenId,
+        uint16 _newWateringCount,
+        uint8 _newGrowthStage
+    ) external {
         require(ownerOf(tokenId) != address(0), "token not minted yet");
         TreeData storage tree = treeData[tokenId];
         tree.lastWateredTimestamp = block.timestamp;
