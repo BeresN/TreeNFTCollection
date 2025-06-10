@@ -2,10 +2,8 @@
 pragma solidity 0.8.30;
 
 import {NFTCollection} from "./NFTCollection.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
+contract TreeGrowthStages is NFTCollection {
     uint256 public constant wateringCost = 0.0001 ether;
     uint256 public constant wateringCooldown = 1 days;
     address public initialOwner;
@@ -19,16 +17,16 @@ contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
     function wateringTree(uint256 tokenId) external payable nonReentrant {
         require(ownerOf(tokenId) == msg.sender, "only owner can water the tree");
         TreeData storage tree = treeData[tokenId];
-        require(balanceOf(msg.sender) >= wateringCost, "insufficient payment");
-        require(block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
+        require(msg.value >= wateringCost, "insufficient payment");
+        require(tree.lastWateredTimestamp == 0 || block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
 
-        tree.lastWateredTimestamp = block.timestamp;
         uint16 newWateringCount = tree.wateringCount + 1;
         uint8 calculatedNewStage = calculateGrowthStages(tree.plantedTimestamp, newWateringCount);
-
         uint8 checkIfStageIsUpdated = calculatedNewStage > tree.growthStage ? calculatedNewStage : tree.growthStage;
 
-        this.updateTreeData(tokenId, newWateringCount, checkIfStageIsUpdated);
+        tree.lastWateredTimestamp = block.timestamp;
+        tree.wateringCount = newWateringCount;
+        tree.growthStage = checkIfStageIsUpdated;
 
         emit treeGrowthCalculation(tokenId, checkIfStageIsUpdated, newWateringCount);
     }

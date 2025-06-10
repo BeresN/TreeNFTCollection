@@ -42,12 +42,8 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable {
         reservedTokensClaimed++;
         isMinted[to] = true;
 
-        treeData[tokenId] = TreeData({
-            plantedTimestamp: block.timestamp,
-            lastWateredTimestamp: block.timestamp,
-            growthStage: 0,
-            wateringCount: 0
-        });
+        treeData[tokenId] =
+            TreeData({plantedTimestamp: block.timestamp, lastWateredTimestamp: 0, growthStage: 0, wateringCount: 0});
 
         _safeMint(to, tokenId);
         emit treeInitialized(tokenId, ownerOf(tokenId), block.timestamp);
