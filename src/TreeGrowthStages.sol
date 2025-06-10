@@ -3,10 +3,8 @@ pragma solidity 0.8.30;
 
 <<<<<<< HEAD
 import {NFTCollection} from "./NFTCollection.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
+contract TreeGrowthStages is NFTCollection {
     uint256 public constant wateringCost = 0.0001 ether;
     uint256 public constant wateringCooldown = 1 days;
     address public initialOwner;
@@ -40,14 +38,19 @@ contract TreeGrowthStages is TreeNFTCollection {
         );
         TreeData storage tree = treeData[tokenId];
 <<<<<<< HEAD
+<<<<<<< HEAD
         require(balanceOf(msg.sender) >= wateringCost, "insufficient payment");
         require(
             block.timestamp >= tree.lastWateredTimestamp + wateringCooldown,
             "tree was already watered"
         );
+=======
+        require(msg.value >= wateringCost, "insufficient payment");
+        require(tree.lastWateredTimestamp == 0 || block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
+>>>>>>> d7a212c (fix: all tests passed, start working on nft collection)
 
-        tree.lastWateredTimestamp = block.timestamp;
         uint16 newWateringCount = tree.wateringCount + 1;
+<<<<<<< HEAD
         uint8 calculatedNewStage = calculateGrowthStages(
             tree.plantedTimestamp,
             newWateringCount
@@ -56,8 +59,14 @@ contract TreeGrowthStages is TreeNFTCollection {
         uint8 checkIfStageIsUpdated = calculatedNewStage > tree.growthStage
             ? calculatedNewStage
             : tree.growthStage;
+=======
+        uint8 calculatedNewStage = calculateGrowthStages(tree.plantedTimestamp, newWateringCount);
+        uint8 checkIfStageIsUpdated = calculatedNewStage > tree.growthStage ? calculatedNewStage : tree.growthStage;
+>>>>>>> d7a212c (fix: all tests passed, start working on nft collection)
 
-        this.updateTreeData(tokenId, newWateringCount, checkIfStageIsUpdated);
+        tree.lastWateredTimestamp = block.timestamp;
+        tree.wateringCount = newWateringCount;
+        tree.growthStage = checkIfStageIsUpdated;
 
         emit treeGrowthCalculation(
             tokenId,
