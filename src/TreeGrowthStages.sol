@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {NFTCollection} from "./NFTCollection.sol";
+import {TreeNFTCollection} from "./TreeNFTCollection.sol";
 
-contract TreeGrowthStages is NFTCollection {
-    uint256 public constant wateringCost = 0.0001 ether;
+contract TreeGrowthStages is TreeNFTCollection {
+    uint256 public constant wateringCost = 0.0004 ether;
     uint256 public constant wateringCooldown = 1 days;
     address public initialOwner;
 
     event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
-
-    constructor(address whitelistContract) NFTCollection(whitelistContract) {
+    event metaDataUpdate(uint256 tokenId);
+    constructor(address whitelistContract) TreeNFTCollection(whitelistContract) {
         initialOwner == msg.sender;
     }
 
@@ -22,13 +22,15 @@ contract TreeGrowthStages is NFTCollection {
 
         uint16 newWateringCount = tree.wateringCount + 1;
         uint8 calculatedNewStage = calculateGrowthStages(tree.plantedTimestamp, newWateringCount);
-        uint8 checkIfStageIsUpdated = calculatedNewStage > tree.growthStage ? calculatedNewStage : tree.growthStage;
 
         tree.lastWateredTimestamp = block.timestamp;
         tree.wateringCount = newWateringCount;
-        tree.growthStage = checkIfStageIsUpdated;
+        if(tree.growthStage != calculatedNewStage){
+            emit metaDataUpdate(tokenId);
+        }
+        tree.growthStage = calculatedNewStage;
 
-        emit treeGrowthCalculation(tokenId, checkIfStageIsUpdated, newWateringCount);
+        emit treeGrowthCalculation(tokenId, tree.growthStage, newWateringCount);
     }
 
     function calculateGrowthStages(uint256 plantedTimestamp, uint16 wateringCount)
@@ -49,5 +51,14 @@ contract TreeGrowthStages is NFTCollection {
         } else {
             newStage = 0; // Seedling
         }
+    }
+
+    //if the tree is not watered for 5 days, the contract will mint a withered tree
+    function CheckIfTreeIsWatered(uint256 tokenId) internal view returns (uint8 newStage){
+        TreeData storage tree = treeData[tokenId];
+        if(tree.plantedTimestamp + 5 days < tree.lastWateredTimestamp){
+            newStage = 5;
+        }
+
     }
 }
