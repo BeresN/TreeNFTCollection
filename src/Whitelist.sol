@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-error OnlyOwner();
+error Only__Owner();
 
 contract Whitelist {
     mapping(address => bool) public isWhitelisted;
     mapping(address => uint256) private addressToIndex;
-    uint256 public maxWhitelistedAddresses;
+    uint256 public immutable maxWhitelistedAddresses;
     address[] public whitelistedAddresses;
-    address public initialOwner;
+    address public immutable initialOwner;
 
     event removedFromWhitelist(address indexed _address);
     event addedToWhitelist(address indexed _address);
@@ -51,7 +51,7 @@ contract Whitelist {
     }
 
     modifier onlyOwner() {
-        if (msg.sender != initialOwner) revert OnlyOwner();
+        if (msg.sender != initialOwner) revert Only__Owner();
         _;
     }
 }

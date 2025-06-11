@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+<<<<<<< HEAD
 import {NFTCollection} from "./NFTCollection.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -17,6 +18,18 @@ contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
     );
 
     constructor(address whitelistContract) NFTCollection(whitelistContract) {
+=======
+import {TreeNFTCollection} from "./TreeNFTCollection.sol";
+
+contract TreeGrowthStages is TreeNFTCollection {
+    uint256 public constant wateringCost = 0.0004 ether;
+    uint256 public constant wateringCooldown = 1 days;
+    address public initialOwner;
+
+    event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
+    event metaDataUpdate(uint256 tokenId);
+    constructor(address whitelistContract) TreeNFTCollection(whitelistContract) {
+>>>>>>> 19a2ec4 (working on withered tree)
         initialOwner == msg.sender;
     }
 
@@ -26,6 +39,7 @@ contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
             "only owner can water the tree"
         );
         TreeData storage tree = treeData[tokenId];
+<<<<<<< HEAD
         require(balanceOf(msg.sender) >= wateringCost, "insufficient payment");
         require(
             block.timestamp >= tree.lastWateredTimestamp + wateringCooldown,
@@ -50,6 +64,22 @@ contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
             checkIfStageIsUpdated,
             newWateringCount
         );
+=======
+        require(msg.value >= wateringCost, "insufficient payment");
+        require(tree.lastWateredTimestamp == 0 || block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
+
+        uint16 newWateringCount = tree.wateringCount + 1;
+        uint8 calculatedNewStage = calculateGrowthStages(tree.plantedTimestamp, newWateringCount);
+
+        tree.lastWateredTimestamp = block.timestamp;
+        tree.wateringCount = newWateringCount;
+        if(tree.growthStage != calculatedNewStage){
+            emit metaDataUpdate(tokenId);
+        }
+        tree.growthStage = calculatedNewStage;
+
+        emit treeGrowthCalculation(tokenId, tree.growthStage, newWateringCount);
+>>>>>>> 19a2ec4 (working on withered tree)
     }
 
     function calculateGrowthStages(
@@ -69,5 +99,14 @@ contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
         } else {
             newStage = 0; // Seedling
         }
+    }
+
+    //if the tree is not watered for 5 days, the contract will mint a withered tree
+    function CheckIfTreeIsWatered(uint256 tokenId) internal view returns (uint8 newStage){
+        TreeData storage tree = treeData[tokenId];
+        if(tree.plantedTimestamp + 5 days < tree.lastWateredTimestamp){
+            newStage = 5;
+        }
+
     }
 }

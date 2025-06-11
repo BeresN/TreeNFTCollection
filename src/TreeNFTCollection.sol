@@ -6,12 +6,13 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Whitelist.sol";
 
-contract NFTCollection is ERC721, ReentrancyGuard, Ownable {
+contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
     mapping(address => bool) public isMinted;
     uint256 public constant mint_price = 0.001 ether;
-    uint256 public constant maxTokensId = 5;
-    uint256 public reservedTokensClaimed = 0;
+    uint8 public constant maxTokensId = 5;
+    uint8 public reservedTokensClaimed = 0;
     Whitelist immutable whitelist;
+    string public baseURI;
 
     struct TreeData {
         uint256 plantedTimestamp;
@@ -89,6 +90,7 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable {
         );
     }
 
+<<<<<<< HEAD:src/NFTCollection.sol
     function updateTreeData(
         uint256 tokenId,
         uint16 _newWateringCount,
@@ -99,5 +101,15 @@ contract NFTCollection is ERC721, ReentrancyGuard, Ownable {
         tree.lastWateredTimestamp = block.timestamp;
         tree.wateringCount = _newWateringCount;
         tree.growthStage = _newGrowthStage;
+=======
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(ownerOf(tokenId) != address(0), "Uri query for non-existent token");
+        return string(abi.encodePacked(baseURI, "/", Strings.toString(tokenId), ".json"));
+>>>>>>> 19a2ec4 (working on withered tree):src/TreeNFTCollection.sol
     }
+
+    function setBaseUri(string memory _baseURI) external onlyOwner{
+        baseURI = _baseURI;
+    }
+
 }
