@@ -49,7 +49,7 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
 
         treeData[tokenId] = TreeData({
             plantedTimestamp: block.timestamp,
-            lastWateredTimestamp: block.timestamp,
+            lastWateredTimestamp: 0,
             growthStage: 0,
             wateringCount: 0
         });
@@ -66,6 +66,22 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         require(success, "Transfer failed");
 
         emit Withdraw(msg.sender, amount);
+    }
+
+    function updateTreeData(
+        uint256 tokenId,
+        uint16 _newWateringCount,
+        uint8 _newGrowthStage
+    ) external {
+        require(ownerOf(tokenId) != address(0), "token not minted yet");
+
+        TreeData storage tree = treeData[tokenId];
+
+        tree.lastWateredTimestamp = block.timestamp;
+
+        tree.wateringCount = _newWateringCount;
+
+        tree.growthStage = _newGrowthStage;
     }
 
     function getTreeData(

@@ -2,11 +2,11 @@
 pragma solidity 0.8.30;
 
 import "forge-std/Test.sol";
-import "../src/NFTCollection.sol";
+import "../src/TreeNFTCollection.sol";
 import "../src/Whitelist.sol";
 
 contract NFTCollectionTest is Test {
-    NFTCollection public nftCollection;
+    TreeNFTCollection public nftCollection;
     Whitelist public whitelist;
 
     address public owner;
@@ -42,7 +42,7 @@ contract NFTCollectionTest is Test {
 
         // Deploy NFT collection as owner
         vm.prank(owner);
-        nftCollection = new NFTCollection(address(whitelist));
+        nftCollection = new TreeNFTCollection(address(whitelist));
 
         // Add users to whitelist
         vm.startPrank(owner);
@@ -63,7 +63,7 @@ contract NFTCollectionTest is Test {
     function testConstructorRevertsWithZeroAddress() public {
         vm.prank(owner);
         vm.expectRevert("Cannot be 0 address");
-        new NFTCollection(address(0));
+        new TreeNFTCollection(address(0));
     }
 
     function testSuccessfulMint() public {

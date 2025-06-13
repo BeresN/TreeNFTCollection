@@ -115,12 +115,17 @@ contract TreeGrowthStagesTest is Test {
         // First watering
         uint256 Cooldown = 1 days;
         uint256 wateringCost = treeGrowth.wateringCost();
+<<<<<<< HEAD
         (
             uint256 plantedTimestamp,
             uint256 lastWateredTimestamp,
             uint8 growthStage,
             uint16 count
         ) = treeGrowth.getTreeData(1);
+=======
+        (uint256 plantedTimestamp, uint256 lastWateredTimestamp, uint8 growthStage, uint16 count) =
+            treeGrowth.getTreeData(1);
+>>>>>>> 7a243375b6969e56255a6b3773be6e6e7ab298a8
         assertEq(plantedTimestamp, 1);
         assertEq(lastWateredTimestamp, 0);
         assertEq(growthStage, 0);
@@ -136,7 +141,11 @@ contract TreeGrowthStagesTest is Test {
         vm.prank(user1);
         treeGrowth.wateringTree{value: wateringCost}(1);
 
+<<<<<<< HEAD
         (, , , count) = treeGrowth.getTreeData(1);
+=======
+        (,,, count) = treeGrowth.getTreeData(1);
+>>>>>>> 7a243375b6969e56255a6b3773be6e6e7ab298a8
         assertEq(count, 2);
     }
 
@@ -271,6 +280,32 @@ contract TreeGrowthStagesTest is Test {
         vm.stopPrank();
     }
 
+<<<<<<< HEAD
+=======
+    function testGrowthStageNeverDowngrades() public {
+        // Advance to sapling
+        vm.warp(block.timestamp + 7 days);
+        for (uint256 i = 0; i < 5; i++) {
+            vm.prank(user1);
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
+        }
+
+        (,, uint8 stage,) = treeGrowth.getTreeData(1);
+        assertEq(stage, 1); // Sapling
+
+        // Continue watering but don't advance time enough for next stage
+        for (uint256 i = 0; i < 5; i++) {
+            vm.prank(user1);
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
+        }
+        vm.prank(user1);
+        (,, stage,) = treeGrowth.getTreeData(1);
+        assertEq(stage, 1); // Should remain sapling, never downgrade
+    }
+
+>>>>>>> 7a243375b6969e56255a6b3773be6e6e7ab298a8
     // Payment and Ether Handling Tests
     function testWateringWithExactPayment() public {
         vm.prank(user1);
