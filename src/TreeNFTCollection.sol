@@ -47,8 +47,12 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         reservedTokensClaimed++;
         isMinted[to] = true;
 
-        treeData[tokenId] =
-            TreeData({plantedTimestamp: block.timestamp, lastWateredTimestamp: 0, growthStage: 0, wateringCount: 0});
+        treeData[tokenId] = TreeData({
+            plantedTimestamp: block.timestamp,
+            lastWateredTimestamp: block.timestamp,
+            growthStage: 0,
+            wateringCount: 0
+        });
 
         _safeMint(to, tokenId);
         emit treeInitialized(tokenId, ownerOf(tokenId), block.timestamp);
@@ -86,26 +90,25 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         );
     }
 
-<<<<<<< HEAD:src/NFTCollection.sol
-    function updateTreeData(
-        uint256 tokenId,
-        uint16 _newWateringCount,
-        uint8 _newGrowthStage
-    ) external {
-        require(ownerOf(tokenId) != address(0), "token not minted yet");
-        TreeData storage tree = treeData[tokenId];
-        tree.lastWateredTimestamp = block.timestamp;
-        tree.wateringCount = _newWateringCount;
-        tree.growthStage = _newGrowthStage;
-=======
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        require(ownerOf(tokenId) != address(0), "Uri query for non-existent token");
-        return string(abi.encodePacked(baseURI, "/", Strings.toString(tokenId), ".json"));
->>>>>>> 19a2ec4 (working on withered tree):src/TreeNFTCollection.sol
+    function tokenURI(
+        uint256 tokenId
+    ) public view override returns (string memory) {
+        require(
+            ownerOf(tokenId) != address(0),
+            "Uri query for non-existent token"
+        );
+        return
+            string(
+                abi.encodePacked(
+                    baseURI,
+                    "/",
+                    Strings.toString(tokenId),
+                    ".json"
+                )
+            );
     }
 
-    function setBaseUri(string memory _baseURI) external onlyOwner{
+    function setBaseUri(string memory _baseURI) external onlyOwner {
         baseURI = _baseURI;
     }
-
 }
