@@ -60,6 +60,18 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         emit Withdraw(msg.sender, amount);
     }
 
+    function updateTreeData(uint256 tokenId, uint16 _newWateringCount, uint8 _newGrowthStage) external {
+        require(ownerOf(tokenId) != address(0), "token not minted yet");
+
+        TreeData storage tree = treeData[tokenId];
+
+        tree.lastWateredTimestamp = block.timestamp;
+
+        tree.wateringCount = _newWateringCount;
+
+        tree.growthStage = _newGrowthStage;
+    }
+
     function getTreeData(uint256 tokenId)
         external
         view
@@ -75,8 +87,7 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         return string(abi.encodePacked(baseURI, "/", Strings.toString(tokenId), ".json"));
     }
 
-    function setBaseUri(string memory _baseURI) external onlyOwner{
+    function setBaseUri(string memory _baseURI) external onlyOwner {
         baseURI = _baseURI;
     }
-
 }

@@ -3,13 +3,13 @@ pragma solidity 0.8.30;
 
 import "forge-std/Test.sol";
 import "../src/TreeGrowthStages.sol";
-import "../src/NFTCollection.sol";
+import "../src/TreeNFTCollection.sol";
 import "../src/Whitelist.sol";
 
 contract TreeGrowthStagesTest is Test {
     TreeGrowthStages public treeGrowth;
     Whitelist public whitelist;
-    NFTCollection public nftCollection;
+    TreeNFTCollection public nftCollection;
 
     address public owner;
     address public user1;
@@ -261,7 +261,6 @@ contract TreeGrowthStagesTest is Test {
     }
 
     function testGrowthStageNeverDowngrades() public {
-
         // Advance to sapling
         vm.warp(block.timestamp + 7 days);
         for (uint256 i = 0; i < 5; i++) {
@@ -282,7 +281,6 @@ contract TreeGrowthStagesTest is Test {
         vm.prank(user1);
         (,, stage,) = treeGrowth.getTreeData(1);
         assertEq(stage, 1); // Should remain sapling, never downgrade
-
     }
 
     // Payment and Ether Handling Tests
@@ -342,7 +340,6 @@ contract TreeGrowthStagesTest is Test {
 
     // Test event emission
     function testTreeGrowthCalculationEvent() public {
-
         // Fast forward and water to reach sapling
         vm.warp(block.timestamp + 7 days);
 

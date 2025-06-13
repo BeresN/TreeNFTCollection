@@ -10,6 +10,7 @@ contract TreeGrowthStages is TreeNFTCollection {
 
     event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
     event metaDataUpdate(uint256 tokenId);
+
     constructor(address whitelistContract) TreeNFTCollection(whitelistContract) {
         initialOwner == msg.sender;
     }
@@ -18,14 +19,17 @@ contract TreeGrowthStages is TreeNFTCollection {
         require(ownerOf(tokenId) == msg.sender, "only owner can water the tree");
         TreeData storage tree = treeData[tokenId];
         require(msg.value >= wateringCost, "insufficient payment");
-        require(tree.lastWateredTimestamp == 0 || block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
+        require(
+            tree.lastWateredTimestamp == 0 || block.timestamp >= tree.lastWateredTimestamp + wateringCooldown,
+            "tree was already watered"
+        );
 
         uint16 newWateringCount = tree.wateringCount + 1;
         uint8 calculatedNewStage = calculateGrowthStages(tree.plantedTimestamp, newWateringCount);
 
         tree.lastWateredTimestamp = block.timestamp;
         tree.wateringCount = newWateringCount;
-        if(tree.growthStage != calculatedNewStage){
+        if (tree.growthStage != calculatedNewStage) {
             emit metaDataUpdate(tokenId);
         }
         tree.growthStage = calculatedNewStage;
@@ -54,11 +58,10 @@ contract TreeGrowthStages is TreeNFTCollection {
     }
 
     //if the tree is not watered for 5 days, the contract will mint a withered tree
-    function CheckIfTreeIsWatered(uint256 tokenId) internal view returns (uint8 newStage){
+    function CheckIfTreeIsWatered(uint256 tokenId) internal view returns (uint8 newStage) {
         TreeData storage tree = treeData[tokenId];
-        if(tree.plantedTimestamp + 5 days < tree.lastWateredTimestamp){
+        if (tree.plantedTimestamp + 5 days < tree.lastWateredTimestamp) {
             newStage = 5;
         }
-
     }
 }
