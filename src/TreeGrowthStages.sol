@@ -10,34 +10,52 @@ contract TreeGrowthStages is ReentrancyGuard, NFTCollection {
     uint256 public constant wateringCooldown = 1 days;
     address public initialOwner;
 
-    event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
+    event treeGrowthCalculation(
+        uint256 tokenId,
+        uint8 growthStage,
+        uint16 wateringCount
+    );
 
     constructor(address whitelistContract) NFTCollection(whitelistContract) {
         initialOwner == msg.sender;
     }
 
     function wateringTree(uint256 tokenId) external payable nonReentrant {
-        require(ownerOf(tokenId) == msg.sender, "only owner can water the tree");
+        require(
+            ownerOf(tokenId) == msg.sender,
+            "only owner can water the tree"
+        );
         TreeData storage tree = treeData[tokenId];
         require(balanceOf(msg.sender) >= wateringCost, "insufficient payment");
-        require(block.timestamp >= tree.lastWateredTimestamp + wateringCooldown, "tree was already watered");
+        require(
+            block.timestamp >= tree.lastWateredTimestamp + wateringCooldown,
+            "tree was already watered"
+        );
 
         tree.lastWateredTimestamp = block.timestamp;
         uint16 newWateringCount = tree.wateringCount + 1;
-        uint8 calculatedNewStage = calculateGrowthStages(tree.plantedTimestamp, newWateringCount);
+        uint8 calculatedNewStage = calculateGrowthStages(
+            tree.plantedTimestamp,
+            newWateringCount
+        );
 
-        uint8 checkIfStageIsUpdated = calculatedNewStage > tree.growthStage ? calculatedNewStage : tree.growthStage;
+        uint8 checkIfStageIsUpdated = calculatedNewStage > tree.growthStage
+            ? calculatedNewStage
+            : tree.growthStage;
 
         this.updateTreeData(tokenId, newWateringCount, checkIfStageIsUpdated);
 
-        emit treeGrowthCalculation(tokenId, checkIfStageIsUpdated, newWateringCount);
+        emit treeGrowthCalculation(
+            tokenId,
+            checkIfStageIsUpdated,
+            newWateringCount
+        );
     }
 
-    function calculateGrowthStages(uint256 plantedTimestamp, uint16 wateringCount)
-        internal
-        view
-        returns (uint8 newStage)
-    {
+    function calculateGrowthStages(
+        uint256 plantedTimestamp,
+        uint16 wateringCount
+    ) internal view returns (uint8 newStage) {
         uint256 ageInDays = (block.timestamp - plantedTimestamp) / 1 days;
 
         if (ageInDays >= 365 && wateringCount >= 100) {
