@@ -58,12 +58,14 @@ mapping(uint256 => mapping(uint8 => bool)) stageRewardsClaimed;
     function ClaimGrowthRewards(uint256 tokenId) external nonReentrant {
         require(ownerOf(tokenId) == msg.sender, "not owner");
         TreeData storage tree = treeData[tokenId];
-
         uint8 currentStage = tree.growthStage;
-
+        uint256 newTokenId = 
+        if(!stageRewardsClaimed[tokenId][currentStage]){
+            revert("token already rewarded for this stage");
+        }
         stageRewardsClaimed[tokenId][currentStage] = true;
 
-        uint256
+        _safeMint(to, newTokenId);
     }
 
       function reviveWitheredTree(uint256 tokenId) external payable nonReentrant{
@@ -96,7 +98,7 @@ mapping(uint256 => mapping(uint8 => bool)) stageRewardsClaimed;
         } else if (ageInDays >= 30 && wateringCount >= 15) {
             newStage = 2; // Young tree (1+ month, 15+ waterings)
         } else {
-            newStage = 1; // Sapling (1+ week, 5+ waterings)
+            newStage = 1; // Sapling basic nft
         }
 
         if (isTreeWithered(tokenId)) {

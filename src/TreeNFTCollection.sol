@@ -9,7 +9,7 @@ import "./Whitelist.sol";
 contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
     mapping(address => bool) public isMinted;
     uint256 public constant mint_price = 0.001 ether;
-    uint8 public constant maxTokensId = 5;
+    uint8 public constant maxTokensId = 2;
     uint8 public reservedTokensClaimed = 0;
     Whitelist immutable whitelist;
     string public baseURI;
