@@ -50,7 +50,7 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         treeData[tokenId] = TreeData({
             plantedTimestamp: block.timestamp,
             lastWateredTimestamp: 0,
-            growthStage: 0,
+            growthStage: 1,
             wateringCount: 0
         });
 
@@ -59,29 +59,13 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         emit Mint(to, tokenId);
     }
 
-    function withdraw(uint256 amount) external nonReentrant onlyOwner {
+    function withdraw(uint256 amount) external onlyOwner {
         require(msg.sender != address(0), "cannot be address 0");
         require(amount <= address(this).balance, "Insufficient balance");
         (bool success, ) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
 
         emit Withdraw(msg.sender, amount);
-    }
-
-    function updateTreeData(
-        uint256 tokenId,
-        uint16 _newWateringCount,
-        uint8 _newGrowthStage
-    ) external {
-        require(ownerOf(tokenId) != address(0), "token not minted yet");
-
-        TreeData storage tree = treeData[tokenId];
-
-        tree.lastWateredTimestamp = block.timestamp;
-
-        tree.wateringCount = _newWateringCount;
-
-        tree.growthStage = _newGrowthStage;
     }
 
     function getTreeData(
