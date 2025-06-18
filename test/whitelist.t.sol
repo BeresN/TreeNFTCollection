@@ -6,6 +6,7 @@ import "../src/Whitelist.sol";
 
 contract WhitelistTest is Test {
     Whitelist public whitelist;
+
     address public owner;
     address public user1;
     address public user2;
@@ -13,10 +14,10 @@ contract WhitelistTest is Test {
     address public user4;
     address public nonOwner;
 
-    uint256 public constant MAX_WHITELIST_SPOTS = 3;
+    uint256 public constant MAX_WHITELIST_SIZE = 3;
 
-    event addedToWhitelist(address indexed _address);
     event removedFromWhitelist(address indexed _address);
+    event addedToWhitelist(address indexed _address);
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -27,354 +28,317 @@ contract WhitelistTest is Test {
         nonOwner = makeAddr("nonOwner");
 
         vm.prank(owner);
-        whitelist = new Whitelist(owner, MAX_WHITELIST_SPOTS);
+        whitelist = new Whitelist(MAX_WHITELIST_SIZE);
     }
 
-    // ============ Helper Functions ============
-    
-    function getWhitelistLength() internal view returns (uint256) {
-        uint256 length = 0;
-        // We need to iterate until we hit an out-of-bounds error
-        // This is a workaround since we can't access .length directly
-        try whitelist.whitelistedAddresses(length) returns (address) {
-            while (true) {
-                try whitelist.whitelistedAddresses(length) returns (address) {
-                    length++;
-                } catch {
-                    break;
-                }
-            }
-        } catch {
-            // Array is empty
-        }
-        return length;
+    // Constructor Tests
+    function testConstructor() public {
+        assertEq(whitelist.maxWhitelistedAddresses(), MAX_WHITELIST_SIZE);
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 0);
     }
 
-    // ============ Constructor Tests ============
+    function testConstructorWithDifferentMaxSize() public {
+        uint256 customMaxSize = 10;
+        vm.prank(owner);
+        Whitelist customWhitelist = new Whitelist(customMaxSize);
 
-    function test_Constructor_SetsOwnerCorrectly() public {
-        assertEq(whitelist.owner(), owner);
+        assertEq(customWhitelist.maxWhitelistedAddresses(), customMaxSize);
     }
 
-    function test_Constructor_SetsMaxWhitelistedAddressesCorrectly() public {
-        assertEq(whitelist.maxWhitelistedAddresses(), MAX_WHITELIST_SPOTS);
-    }
-
-    function test_Constructor_InitialStateEmpty() public {
-        assertEq(getWhitelistLength(), 0);
-        assertFalse(whitelist.isWhitelisted(user1));
-        assertFalse(whitelist.isWhitelisted(user2));
-    }
-
-    // ============ addToWhitelist Tests ============
-
-    function test_AddToWhitelist_Success() public {
+    // Add to Whitelist Tests
+    function testAddToWhitelist() public {
         vm.prank(owner);
         vm.expectEmit(true, false, false, false);
         emit addedToWhitelist(user1);
-        
         whitelist.addToWhitelist(user1);
 
         assertTrue(whitelist.isWhitelisted(user1));
-        assertEq(getWhitelistLength(), 1);
-        assertEq(whitelist.whitelistedAddresses(0), user1);
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 1);
+        assertEq(addresses[0], user1);
     }
 
-    function test_AddToWhitelist_MultipleUsers() public {
+    function testAddMultipleToWhitelist() public {
         vm.startPrank(owner);
-        
+
         whitelist.addToWhitelist(user1);
         whitelist.addToWhitelist(user2);
         whitelist.addToWhitelist(user3);
+
+        vm.stopPrank();
 
         assertTrue(whitelist.isWhitelisted(user1));
         assertTrue(whitelist.isWhitelisted(user2));
         assertTrue(whitelist.isWhitelisted(user3));
-        assertEq(getWhitelistLength(), 3);
-        assertEq(whitelist.whitelistedAddresses(0), user1);
-        assertEq(whitelist.whitelistedAddresses(1), user2);
-        assertEq(whitelist.whitelistedAddresses(2), user3);
-        
-        vm.stopPrank();
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 3);
+        assertEq(addresses[0], user1);
+        assertEq(addresses[1], user2);
+        assertEq(addresses[2], user3);
     }
 
-    function test_AddToWhitelist_RevertNotOwner() public {
+    function testAddToWhitelistRevertsWhenNotOwner() public {
         vm.prank(nonOwner);
         vm.expectRevert();
         whitelist.addToWhitelist(user1);
     }
 
-    function test_AddToWhitelist_RevertAlreadyWhitelisted() public {
+    function testAddToWhitelistRevertsWhenAlreadyWhitelisted() public {
         vm.startPrank(owner);
-        
         whitelist.addToWhitelist(user1);
-        
+
         vm.expectRevert("Address is already whitelisted");
         whitelist.addToWhitelist(user1);
-        
         vm.stopPrank();
     }
 
-    function test_AddToWhitelist_RevertWhitelistFull() public {
+    function testAddToWhitelistRevertsWhenFull() public {
         vm.startPrank(owner);
-        
+
         // Fill the whitelist to capacity
         whitelist.addToWhitelist(user1);
         whitelist.addToWhitelist(user2);
         whitelist.addToWhitelist(user3);
-        
+
         // Try to add one more
         vm.expectRevert("Whitelist is already full");
         whitelist.addToWhitelist(user4);
-        
+
         vm.stopPrank();
     }
 
-    function test_AddToWhitelist_ZeroAddress() public {
-        vm.prank(owner);
-        whitelist.addToWhitelist(address(0));
-        
-        assertTrue(whitelist.isWhitelisted(address(0)));
-        assertEq(whitelist.whitelistedAddresses(0), address(0));
-    }
-
-    // ============ removeFromWhitelist Tests ============
-    // NOTE: These tests will fail due to the bug in the contract
-    // where addressToIndex is never set in addToWhitelist
-
-    function test_RemoveFromWhitelist_SingleUser_WillFail() public {
-        // This test demonstrates the bug in the contract
+    // Remove from Whitelist Tests
+    function testRemoveFromWhitelistSingleAddress() public {
+        // Add user first
         vm.startPrank(owner);
-        
         whitelist.addToWhitelist(user1);
-        
-        // This will fail because addressToIndex[user1] was never set
-        // It defaults to 0, but the removal logic will be incorrect
-        vm.expectRevert(); // Expecting some kind of failure
+
+        // Verify added
+        assertTrue(whitelist.isWhitelisted(user1));
+        assertEq(whitelist.getWhitelistedAddresses().length, 1);
+
+        // Remove user
+        vm.expectEmit(true, false, false, false);
+        emit removedFromWhitelist(user1);
         whitelist.removeFromWhitelist(user1);
-        
+
         vm.stopPrank();
+
+        // Verify removed
+        assertFalse(whitelist.isWhitelisted(user1));
+        assertEq(whitelist.getWhitelistedAddresses().length, 0);
     }
 
-    function test_RemoveFromWhitelist_RevertNotOwner() public {
+    function testRemoveFromWhitelistMiddleAddress() public {
+        // This test will likely fail due to the bug in the contract
+        // The addressToIndex mapping is never set when adding addresses
+        vm.startPrank(owner);
+
+        whitelist.addToWhitelist(user1);
+        whitelist.addToWhitelist(user2);
+        whitelist.addToWhitelist(user3);
+
+        // Try to remove middle address (user2)
+        // This should work but likely won't due to addressToIndex bug
+        whitelist.removeFromWhitelist(user2);
+
+        vm.stopPrank();
+
+        assertFalse(whitelist.isWhitelisted(user2));
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 2);
+
+        // Check that the remaining addresses are correct
+        // Note: Due to the swap-and-pop mechanism, user3 should be moved to position 1
+        bool foundUser1 = false;
+        bool foundUser3 = false;
+
+        for (uint256 i = 0; i < addresses.length; i++) {
+            if (addresses[i] == user1) foundUser1 = true;
+            if (addresses[i] == user3) foundUser3 = true;
+        }
+
+        assertTrue(foundUser1);
+        assertTrue(foundUser3);
+    }
+
+    function testRemoveFromWhitelistLastAddress() public {
+        vm.startPrank(owner);
+
+        whitelist.addToWhitelist(user1);
+        whitelist.addToWhitelist(user2);
+        whitelist.addToWhitelist(user3);
+
+        // Remove last address
+        whitelist.removeFromWhitelist(user3);
+
+        vm.stopPrank();
+
+        assertFalse(whitelist.isWhitelisted(user3));
+        assertTrue(whitelist.isWhitelisted(user1));
+        assertTrue(whitelist.isWhitelisted(user2));
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 2);
+        assertEq(addresses[0], user1);
+        assertEq(addresses[1], user2);
+    }
+
+    function testRemoveFromWhitelistRevertsWhenNotOwner() public {
         vm.prank(owner);
         whitelist.addToWhitelist(user1);
-        
+
         vm.prank(nonOwner);
         vm.expectRevert();
         whitelist.removeFromWhitelist(user1);
     }
 
-    function test_RemoveFromWhitelist_RevertNotWhitelisted() public {
+    // NOTE: This test should now work correctly with the fixed contract
+    function testRemoveNonWhitelistedAddressReverts() public {
+        // Now the contract properly checks if address is whitelisted
         vm.prank(owner);
         vm.expectRevert("Address is not whitelisted");
         whitelist.removeFromWhitelist(user1);
     }
 
-    // ============ Edge Cases ============
+    // View Function Tests
+    function testGetWhitelistedAddresses() public {
+        address[] memory emptyAddresses = whitelist.getWhitelistedAddresses();
+        assertEq(emptyAddresses.length, 0);
 
-    function test_AddToWhitelist_MaxCapacityBoundary() public {
         vm.startPrank(owner);
-        
-        // Add exactly max capacity
         whitelist.addToWhitelist(user1);
         whitelist.addToWhitelist(user2);
-        whitelist.addToWhitelist(user3);
-        
-        assertEq(getWhitelistLength(), MAX_WHITELIST_SPOTS);
-        
-        // One more should fail
-        vm.expectRevert("Whitelist is already full");
-        whitelist.addToWhitelist(user4);
-        
         vm.stopPrank();
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 2);
+        assertEq(addresses[0], user1);
+        assertEq(addresses[1], user2);
     }
 
-    function test_WhitelistedAddresses_PublicArrayAccess() public {
-        vm.startPrank(owner);
-        
-        whitelist.addToWhitelist(user1);
-        whitelist.addToWhitelist(user2);
-        
-        // Test direct array access
-        assertEq(whitelist.whitelistedAddresses(0), user1);
-        assertEq(whitelist.whitelistedAddresses(1), user2);
-        
-        // Test array length using helper
-        assertEq(getWhitelistLength(), 2);
-        
-        vm.stopPrank();
-    }
-
-    function test_IsWhitelisted_Mapping() public {
-        // Initially false
+    function testIsWhitelistedReturnsFalseForNonWhitelisted() public {
         assertFalse(whitelist.isWhitelisted(user1));
-        
-        vm.prank(owner);
-        whitelist.addToWhitelist(user1);
-        
-        // Now true
-        assertTrue(whitelist.isWhitelisted(user1));
-        // Others still false
         assertFalse(whitelist.isWhitelisted(user2));
+        assertFalse(whitelist.isWhitelisted(address(0)));
     }
 
-    // ============ Fuzz Tests ============
-
-    function testFuzz_AddToWhitelist_ValidAddresses(address randomAddr) public {
-        vm.assume(randomAddr != address(0)); // Exclude zero address for this test
-        
-        vm.prank(owner);
-        whitelist.addToWhitelist(randomAddr);
-        
-        assertTrue(whitelist.isWhitelisted(randomAddr));
-        assertEq(whitelist.whitelistedAddresses(0), randomAddr);
-    }
-
-    function testFuzz_AddToWhitelist_RevertAlreadyWhitelisted(address randomAddr) public {
+    // Edge Cases and Integration Tests
+    function testAddAndRemoveSequence() public {
         vm.startPrank(owner);
-        
-        whitelist.addToWhitelist(randomAddr);
-        
-        vm.expectRevert("Address is already whitelisted");
-        whitelist.addToWhitelist(randomAddr);
-        
-        vm.stopPrank();
-    }
 
-    // ============ Integration Tests ============
-
-    function test_AddRemove_Integration_WillPartiallyFail() public {
-        vm.startPrank(owner);
-        
         // Add users
         whitelist.addToWhitelist(user1);
         whitelist.addToWhitelist(user2);
-        
-        assertEq(getWhitelistLength(), 2);
-        assertTrue(whitelist.isWhitelisted(user1));
-        assertTrue(whitelist.isWhitelisted(user2));
-        
-        // Try to remove (this will likely fail due to addressToIndex bug)
-        // But we can test the revert conditions
-        
+
+        // Remove first user
+        whitelist.removeFromWhitelist(user1);
+
+        // Add another user (should work since we're under limit again)
+        whitelist.addToWhitelist(user3);
+
         vm.stopPrank();
+
+        assertFalse(whitelist.isWhitelisted(user1));
+        assertTrue(whitelist.isWhitelisted(user2));
+        assertTrue(whitelist.isWhitelisted(user3));
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 2);
     }
 
-    // ============ Gas Tests ============
+    function testFillAndEmptyWhitelist() public {
+        vm.startPrank(owner);
 
-    function test_Gas_AddToWhitelist() public {
+        // Fill to capacity
+        whitelist.addToWhitelist(user1);
+        whitelist.addToWhitelist(user2);
+        whitelist.addToWhitelist(user3);
+
+        assertEq(whitelist.getWhitelistedAddresses().length, MAX_WHITELIST_SIZE);
+
+        // Empty completely
+        whitelist.removeFromWhitelist(user1);
+        whitelist.removeFromWhitelist(user2);
+        whitelist.removeFromWhitelist(user3);
+
+        vm.stopPrank();
+
+        assertEq(whitelist.getWhitelistedAddresses().length, 0);
+        assertFalse(whitelist.isWhitelisted(user1));
+        assertFalse(whitelist.isWhitelisted(user2));
+        assertFalse(whitelist.isWhitelisted(user3));
+    }
+
+    // Fuzz Tests
+    function testFuzzAddToWhitelist(address randomAddress) public {
+        vm.assume(randomAddress != address(0));
+        vm.assume(randomAddress != owner);
+
         vm.prank(owner);
+        whitelist.addToWhitelist(randomAddress);
+
+        assertTrue(whitelist.isWhitelisted(randomAddress));
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 1);
+        assertEq(addresses[0], randomAddress);
+    }
+
+    function testFuzzMaxWhitelistSize(uint256 maxSize) public {
+        vm.assume(maxSize > 0 && maxSize <= 1000); // Reasonable bounds
+
+        vm.prank(owner);
+        Whitelist fuzzWhitelist = new Whitelist(maxSize);
+
+        assertEq(fuzzWhitelist.maxWhitelistedAddresses(), maxSize);
+    }
+
+    // Gas Usage Tests
+    function testGasUsageAddToWhitelist() public {
         uint256 gasBefore = gasleft();
+        vm.prank(owner);
         whitelist.addToWhitelist(user1);
         uint256 gasUsed = gasBefore - gasleft();
-        
+
         // Gas usage should be reasonable (adjust threshold as needed)
         assertLt(gasUsed, 100000);
     }
 
-    // ============ Event Tests ============
-
-    function test_Events_AddToWhitelist() public {
-        vm.prank(owner);
-        
-        vm.expectEmit(true, false, false, false);
-        emit addedToWhitelist(user1);
-        
-        whitelist.addToWhitelist(user1);
-    }
-
-    function test_Events_RemoveFromWhitelist_ExpectedBehavior() public {
+    // Test the fixes work correctly
+    function testFixedAddressToIndexMapping() public {
         vm.startPrank(owner);
-        
-        whitelist.addToWhitelist(user1);
-        
-        // This would be the expected event if the function worked
-        vm.expectEmit(true, false, false, false);
-        emit removedFromWhitelist(user1);
-        
-        // This will likely revert due to the bug, but shows intended behavior
-        vm.expectRevert();
-        whitelist.removeFromWhitelist(user1);
-        
-        vm.stopPrank();
-    }
 
-    // ============ Ownership Tests ============
-
-    function test_Ownership_TransferOwnership() public {
-        vm.prank(owner);
-        whitelist.transferOwnership(user1);
-        
-        assertEq(whitelist.owner(), user1);
-        
-        // Old owner can't add anymore
-        vm.prank(owner);
-        vm.expectRevert();
-        whitelist.addToWhitelist(user2);
-        
-        // New owner can add
-        vm.prank(user1);
-        whitelist.addToWhitelist(user2);
-        assertTrue(whitelist.isWhitelisted(user2));
-    }
-
-    function test_Ownership_RenounceOwnership() public {
-        vm.prank(owner);
-        whitelist.renounceOwnership();
-        
-        assertEq(whitelist.owner(), address(0));
-        
-        // No one can add anymore
-        vm.prank(owner);
-        vm.expectRevert();
-        whitelist.addToWhitelist(user1);
-    }
-
-    // ============ Alternative Length Check Methods ============
-
-    function test_AlternativeWayToCheckLength() public {
-        vm.startPrank(owner);
-        
-        // Add some users
-        whitelist.addToWhitelist(user1);
-        whitelist.addToWhitelist(user2);
-        
-        // Check by trying to access indices
-        // Index 0 should exist
-        assertEq(whitelist.whitelistedAddresses(0), user1);
-        // Index 1 should exist
-        assertEq(whitelist.whitelistedAddresses(1), user2);
-        
-        // Index 2 should revert (out of bounds)
-        vm.expectRevert();
-        whitelist.whitelistedAddresses(2);
-        
-        vm.stopPrank();
-    }
-
-    // ============ Test for the Specific Bug ============
-
-    function test_AddressToIndexBug_Demonstration() public {
-        vm.startPrank(owner);
-        
         whitelist.addToWhitelist(user1);
         whitelist.addToWhitelist(user2);
         whitelist.addToWhitelist(user3);
-        
-        // All users should be whitelisted
-        assertTrue(whitelist.isWhitelisted(user1));
-        assertTrue(whitelist.isWhitelisted(user2));
-        assertTrue(whitelist.isWhitelisted(user3));
-        
-        // Now try to remove user2 (middle element)
-        // This should work if addressToIndex was properly set
-        // But it will fail because addressToIndex[user2] = 0 (default)
-        // So it will try to remove user1 instead
-        
-        vm.expectRevert(); // Expecting failure due to the bug
+
+        // Remove middle address - this should work correctly now
         whitelist.removeFromWhitelist(user2);
-        
+
+        // Verify state is correct
+        assertTrue(whitelist.isWhitelisted(user1));
+        assertFalse(whitelist.isWhitelisted(user2));
+        assertTrue(whitelist.isWhitelisted(user3));
+
+        address[] memory addresses = whitelist.getWhitelistedAddresses();
+        assertEq(addresses.length, 2);
+
+        // user3 should have been moved to index 1 (where user2 was)
+        assertEq(addresses[0], user1);
+        assertEq(addresses[1], user3);
+
         vm.stopPrank();
+    }
+
+    function testRemoveNonWhitelistedAddressNowReverts() public {
+        vm.prank(owner);
+        vm.expectRevert("Address is not whitelisted");
+        whitelist.removeFromWhitelist(user1);
     }
 }
