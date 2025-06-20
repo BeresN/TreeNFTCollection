@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Whitelist.sol";
 
 contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
+
+    enum TreeType{ Normal, Snow }
     mapping(address => bool) public isMinted;
     uint256 public constant mint_price = 0.001 ether;
     uint8 public constant maxTokensId = 2;
@@ -15,6 +17,7 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
     string public baseURI;
 
     struct TreeData {
+        TreeType treeType;
         uint256 plantedTimestamp;
         uint256 lastWateredTimestamp;
         uint8 growthStage;
@@ -38,8 +41,9 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         whitelist = Whitelist(whitelistContract);
     }
 
-    function mint(address to) external payable nonReentrant {
+    function mint(address to, TreeType treeType) external payable nonReentrant {
         require(whitelist.isWhitelisted(to), "not whitelisted");
+        require(treeType == TreeType.Normal || treeType == TreeType.Snow, "Invalid initial type");
         require(reservedTokensClaimed < maxTokensId, "No more tokens left");
         require(msg.value >= mint_price, "Insufficient funds");
         if (isMinted[to]) revert("Address already minted NFT");
@@ -48,6 +52,7 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         isMinted[to] = true;
 
         treeData[tokenId] = TreeData({
+            treeType: treeType,
             plantedTimestamp: block.timestamp,
             lastWateredTimestamp: 0,
             growthStage: 1,
