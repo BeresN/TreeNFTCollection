@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
-/*pragma solidity 0.8.30;
+pragma solidity 0.8.30;
 
-import "forge-std/Test.sol";
-import "../src/TreeGrowthStages.sol";
+import {Test} from "forge-std/Test.sol";
+
+import {console} from "forge-std/console.sol";
+
+import "../src/CalculateStage.sol";
 import "../src/TreeNFTCollection.sol";
 import "../src/Whitelist.sol";
 
 contract TreeGrowthStagesTest is Test {
     TreeGrowthStages public treeGrowth;
     Whitelist public whitelist;
-    TreeNFTCollection public nftCollection;
 
     address public owner;
     address public user1;
@@ -53,12 +55,12 @@ contract TreeGrowthStagesTest is Test {
         whitelist.addToWhitelist(user2);
         vm.stopPrank();
 
-        // Mint NFTs for testing
+        // Mint NFTs for testing - Fixed enum syntax
         vm.prank(user1);
-        treeGrowth.mint{value: NFT_PRICE}(user1);
+        treeGrowth.mint{value: NFT_PRICE}(user1, TreeNFTCollection.TreeType.Normal);
 
         vm.prank(user2);
-        treeGrowth.mint{value: NFT_PRICE}(user2);
+        treeGrowth.mint{value: NFT_PRICE}(user2, TreeNFTCollection.TreeType.Snow);
     }
 
     // Constructor and Basic Tests
@@ -75,14 +77,13 @@ contract TreeGrowthStagesTest is Test {
         uint256 wateringCost = treeGrowth.wateringCost();
         vm.prank(user1);
         vm.expectEmit(true, false, false, true);
-        emit treeGrowthCalculation(1, 0, 1); // Should remain stage 0 after first watering
+        emit treeGrowthCalculation(1, 1, 1); // Should remain stage 1 after first watering
         treeGrowth.wateringTree{value: wateringCost}(1);
 
-        // Verify tree data updated
-        (, uint256 lastWatered, uint8 stage, uint16 count) = treeGrowth
-            .getTreeData(1);
+        // Verify tree data updated - Fixed return order
+        (,, uint256 lastWatered, uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
         assertEq(lastWatered, block.timestamp);
-        assertEq(stage, 0);
+        assertEq(stage, 1); // Initial stage is 1, not 0
         assertEq(count, 1);
     }
 
@@ -115,11 +116,12 @@ contract TreeGrowthStagesTest is Test {
         // First watering
         uint256 Cooldown = 1 days;
         uint256 wateringCost = treeGrowth.wateringCost();
-        (uint256 plantedTimestamp, uint256 lastWateredTimestamp, uint8 growthStage, uint16 count) =
+        (TreeNFTCollection.TreeType treeType, uint256 plantedTimestamp, uint256 lastWateredTimestamp, uint8 growthStage, uint16 count) =
             treeGrowth.getTreeData(1);
-        assertEq(plantedTimestamp, 1);
+        assertEq(uint256(treeType), 0); // Normal = 0
+        assertTrue(plantedTimestamp > 0); // Should be set to block.timestamp
         assertEq(lastWateredTimestamp, 0);
-        assertEq(growthStage, 0);
+        assertEq(growthStage, 1); // Initial stage is 1
         assertEq(count, 0);
 
         vm.prank(user1);
@@ -132,17 +134,17 @@ contract TreeGrowthStagesTest is Test {
         vm.prank(user1);
         treeGrowth.wateringTree{value: wateringCost}(1);
 
-        (,,, count) = treeGrowth.getTreeData(1);
+        (,,,, count) = treeGrowth.getTreeData(1);
         assertEq(count, 2);
     }
 
     // Growth Stage Calculation Tests
     function testGrowthStagesSeedling() public {
-        // New tree should be seedling (stage 0)
+        // New tree should be stage 1 (sapling)
         vm.startPrank(user1);
 
-        (, , uint8 stage, ) = treeGrowth.getTreeData(1);
-        assertEq(stage, 0);
+        (,, , uint8 stage, ) = treeGrowth.getTreeData(1);
+        assertEq(stage, 1); // Initial stage is 1
 
         // Water a few times but not enough to advance
         for (uint256 i = 0; i < 4; i++) {
@@ -151,27 +153,8 @@ contract TreeGrowthStagesTest is Test {
         }
         vm.stopPrank();
 
-        (, , stage, ) = treeGrowth.getTreeData(1);
-        assertEq(stage, 0); // Still seedling
-    }
-
-    function testGrowthStagesSapling() public {
-        vm.startPrank(user1);
-
-        // Fast forward 1 week
-        vm.warp(block.timestamp + 7 days);
-
-        // Water 5 times to reach sapling stage
-        for (uint256 i = 0; i < 5; i++) {
-            treeGrowth.wateringTree{value: WATERING_COST}(1);
-            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
-        }
-
-        vm.stopPrank();
-
-        (, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
-        assertEq(stage, 1); // Sapling
-        assertEq(count, 5);
+        (,, , stage, ) = treeGrowth.getTreeData(1);
+        assertEq(stage, 1); // Still sapling
     }
 
     function testGrowthStagesYoungTree() public {
@@ -188,7 +171,7 @@ contract TreeGrowthStagesTest is Test {
 
         vm.stopPrank();
 
-        (, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
+        (,, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
         assertEq(stage, 2); // Young tree
         assertEq(count, 15);
     }
@@ -196,10 +179,29 @@ contract TreeGrowthStagesTest is Test {
     function testGrowthStagesMatureTree() public {
         vm.startPrank(user1);
 
-        // Fast forward 6 months
-        vm.warp(block.timestamp + 180 days);
+        // Fast forward 2 months
+        vm.warp(block.timestamp + 60 days);
 
-        // Water 50 times to reach mature tree stage
+        // Water 30 times to reach mature tree stage
+        for (uint256 i = 0; i < 30; i++) {
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+            if (i < 29) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
+        }
+
+        vm.stopPrank();
+
+        (,, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
+        assertEq(stage, 3); // Mature tree
+        assertEq(count, 30);
+    }
+
+    function testGrowthStagesAncientTree() public {
+        vm.startPrank(user1);
+
+        // Fast forward 4 months
+        vm.warp(block.timestamp + 120 days);
+
+        // Water 50 times to reach ancient tree stage
         for (uint256 i = 0; i < 50; i++) {
             treeGrowth.wateringTree{value: WATERING_COST}(1);
             if (i < 49) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
@@ -207,43 +209,23 @@ contract TreeGrowthStagesTest is Test {
 
         vm.stopPrank();
 
-        (, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
-        assertEq(stage, 3); // Mature tree
-        assertEq(count, 50);
-    }
-
-    function testGrowthStagesAncientTree() public {
-        vm.startPrank(user1);
-
-        // Fast forward 1 year
-        vm.warp(block.timestamp + 365 days);
-
-        // Water 100 times to reach ancient tree stage
-        for (uint256 i = 0; i < 100; i++) {
-            treeGrowth.wateringTree{value: WATERING_COST}(1);
-            if (i < 99) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
-        }
-
-        vm.stopPrank();
-
-        (, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
+        (,, , uint8 stage, uint16 count) = treeGrowth.getTreeData(1);
         assertEq(stage, 4); // Ancient tree
-        assertEq(count, 100);
+        assertEq(count, 50);
     }
 
     // Edge Cases for Growth Stages
     function testGrowthStageRequiresBothAgeAndWatering() public {
         vm.startPrank(user1);
 
-        // Test sapling requirements: 7+ days AND 5+ waterings
+        // Test young tree requirements: 30+ days AND 15+ waterings
 
         // Only age, no watering
-        vm.warp(block.timestamp + 10 days);
+        vm.warp(block.timestamp + 35 days);
         treeGrowth.wateringTree{value: WATERING_COST}(1);
-        (, , uint8 stage, ) = treeGrowth.getTreeData(1);
-        assertEq(stage, 0); // Still seedling (only 1 watering)
+        (,, , uint8 stage, ) = treeGrowth.getTreeData(1);
+        assertEq(stage, 1); // Still sapling (only 1 watering)
 
-        // Reset and test only watering, no age
         vm.stopPrank();
 
         // Mint new tree for clean test
@@ -252,32 +234,32 @@ contract TreeGrowthStagesTest is Test {
         vm.prank(owner);
         whitelist.addToWhitelist(user3);
         vm.prank(user3);
-        treeGrowth.mint{value: NFT_PRICE}(user3);
+        treeGrowth.mint{value: NFT_PRICE}(user3, TreeNFTCollection.TreeType.Normal);
 
         vm.startPrank(user3);
-        // Water 5 times but no time passed
-        for (uint256 i = 0; i < 5; i++) {
+        // Water 15 times but no time passed
+        for (uint256 i = 0; i < 15; i++) {
             treeGrowth.wateringTree{value: WATERING_COST}(3);
-            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
+            if (i < 14) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
 
-        (, , stage, ) = treeGrowth.getTreeData(3);
-        assertEq(stage, 0); // Still seedling (not enough age)
+        (,, , stage, ) = treeGrowth.getTreeData(3);
+        assertEq(stage, 1); // Still sapling (not enough age)
 
         vm.stopPrank();
     }
 
     function testGrowthStageNeverDowngrades() public {
-        // Advance to sapling
-        vm.warp(block.timestamp + 7 days);
-        for (uint256 i = 0; i < 5; i++) {
+        // Advance to young tree
+        vm.warp(block.timestamp + 30 days);
+        for (uint256 i = 0; i < 15; i++) {
             vm.prank(user1);
             treeGrowth.wateringTree{value: WATERING_COST}(1);
-            if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
+            if (i < 14) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
 
-        (,, uint8 stage,) = treeGrowth.getTreeData(1);
-        assertEq(stage, 1); // Sapling
+        (,,, uint8 stage,) = treeGrowth.getTreeData(1);
+        assertEq(stage, 2); // Young tree
 
         // Continue watering but don't advance time enough for next stage
         for (uint256 i = 0; i < 5; i++) {
@@ -285,9 +267,8 @@ contract TreeGrowthStagesTest is Test {
             treeGrowth.wateringTree{value: WATERING_COST}(1);
             if (i < 4) vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
-        vm.prank(user1);
-        (,, stage,) = treeGrowth.getTreeData(1);
-        assertEq(stage, 1); // Should remain sapling, never downgrade
+        (,,, stage,) = treeGrowth.getTreeData(1);
+        assertEq(stage, 2); // Should remain young tree, never downgrade
     }
 
     // Payment and Ether Handling Tests
@@ -304,7 +285,7 @@ contract TreeGrowthStagesTest is Test {
         treeGrowth.wateringTree{value: WATERING_COST * 2}(1);
 
         // Should work with excess payment
-        (, , , uint16 count) = treeGrowth.getTreeData(1);
+        (,, , , uint16 count) = treeGrowth.getTreeData(1);
         assertEq(count, 1);
     }
 
@@ -319,8 +300,8 @@ contract TreeGrowthStagesTest is Test {
         treeGrowth.wateringTree{value: WATERING_COST}(2);
 
         // Check both trees were updated independently
-        (, , , uint16 count1) = treeGrowth.getTreeData(1);
-        (, , , uint16 count2) = treeGrowth.getTreeData(2);
+        (,, , , uint16 count1) = treeGrowth.getTreeData(1);
+        (,, , , uint16 count2) = treeGrowth.getTreeData(2);
 
         assertEq(count1, 1);
         assertEq(count2, 1);
@@ -334,7 +315,7 @@ contract TreeGrowthStagesTest is Test {
         vm.prank(user1);
         treeGrowth.wateringTree{value: payment}(1);
 
-        (, , , uint16 count) = treeGrowth.getTreeData(1);
+        (,, , , uint16 count) = treeGrowth.getTreeData(1);
         assertEq(count, 1);
     }
 
@@ -347,19 +328,19 @@ contract TreeGrowthStagesTest is Test {
 
     // Test event emission
     function testTreeGrowthCalculationEvent() public {
-        // Fast forward and water to reach sapling
-        vm.warp(block.timestamp + 7 days);
+        // Fast forward and water to reach young tree
+        vm.warp(block.timestamp + 30 days);
 
-        // The 5th watering should emit stage 1
-        for (uint256 i = 0; i < 4; i++) {
+        // The 15th watering should emit stage 2
+        for (uint256 i = 0; i < 14; i++) {
             vm.prank(user1);
             treeGrowth.wateringTree{value: WATERING_COST}(1);
             vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
 
-        // 5th watering should trigger sapling stage
+        // 15th watering should trigger young tree stage
         vm.expectEmit(true, false, false, true);
-        emit treeGrowthCalculation(1, 1, 5);
+        emit treeGrowthCalculation(1, 2, 15);
         vm.prank(user1);
         treeGrowth.wateringTree{value: WATERING_COST}(1);
     }
@@ -369,47 +350,79 @@ contract TreeGrowthStagesTest is Test {
         vm.prank(user1);
         treeGrowth.wateringTree{value: WATERING_COST}(1);
 
-        (uint256 planted, , , ) = treeGrowth.getTreeData(1);
-        vm.warp(planted + 7 days);
+        (TreeNFTCollection.TreeType treeType, uint256 planted, , , ) = treeGrowth.getTreeData(1);
+        // Fast forward to make tree withered (4+ days after last watering)
+        vm.warp(planted + 5 days);
+        
+        // This should revert because tree is withered
         vm.prank(user1);
+        vm.expectRevert("Tree is withered, revive first");
         treeGrowth.wateringTree{value: WATERING_COST}(1);
-
-        (, , uint8 stage, ) = treeGrowth.getTreeData(1);
-        assertEq(stage, 5);
     }
 
     function testReviveWitheredTree_Success() public {
-        // First make tree withered (following your logic)
+        // First water the tree
         vm.prank(user1);
         treeGrowth.wateringTree{value: WATERING_COST}(1);
 
-        (uint256 planted, , , uint16 wateringCount) = treeGrowth.getTreeData(1);
+        (TreeNFTCollection.TreeType treeType, uint256 planted, , , uint16 wateringCount) = treeGrowth.getTreeData(1);
 
-        // Fast forward and water to trigger withered state
-        vm.warp(planted + 8 days);
-        vm.prank(user1);
-        treeGrowth.wateringTree{value: WATERING_COST}(1);
-
-        // Verify tree is withered
-        (, , uint8 stage, ) = treeGrowth.getTreeData(1);
-        assertEq(stage, 0, "Tree should be withered");
+        // Fast forward to make tree withered
+        vm.warp(planted + 5 days);
 
         // Revive the tree
         vm.expectEmit(true, false, false, true);
-        emit treeGrowthCalculation(1, 1, wateringCount + 1); // Should reset to stage 0
+        emit treeGrowthCalculation(1, 1, wateringCount); // Should reset to stage 1
 
         vm.prank(user1);
         treeGrowth.reviveWitheredTree{value: REVIVAL_COST}(1);
 
         // Check tree is revived
-        (, uint256 newLastWatered, uint8 newStage, ) = treeGrowth.getTreeData(
-            1
-        );
-        assertEq(newStage, 1, "Tree should be reset to seedling");
-        assertEq(
-            newLastWatered,
-            block.timestamp,
-            "Last watered should be updated"
-        );
+        (,, uint256 newLastWatered, uint8 newStage, ) = treeGrowth.getTreeData(1);
+        assertEq(newStage, 1, "Tree should be reset to sapling");
+        assertEq(newLastWatered, block.timestamp, "Last watered should be updated");
     }
+
+     function testAfterReachingNewStage() public{
+        vm.prank(user1);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
+        (, uint256 planted, ,uint8 newStage ,uint16 wateringCount) = treeGrowth.getTreeData(1);
+
+        vm.warp(planted + 120 days);
+        
+        vm.startPrank(user1);
+        for (uint256 i = 0; i < 49; i++) {
+            vm.warp(block.timestamp + WATERING_COOLDOWN + 1); 
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+        }
+        vm.stopPrank();
+        (, uint256 plantedTimestamp, , uint8 stage, uint16 finalCount) = treeGrowth.getTreeData(1);
+  
+        assertEq(stage, 4, "Tree should be ancient tree");
+        assertEq(finalCount, 50, "Should have 15 waterings");
+    }
+
+      function testRevertAfterReachingNewStageDoubleMinted() public{
+        vm.prank(user1);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
+        (, uint256 planted, ,uint8 newStage ,uint16 wateringCount) = treeGrowth.getTreeData(1);
+
+        vm.warp(planted + 120 days);
+        
+        vm.startPrank(user1);
+        for (uint256 i = 0; i < 49; i++) {
+            vm.warp(block.timestamp + WATERING_COOLDOWN + 1); 
+            treeGrowth.wateringTree{value: WATERING_COST}(1);
+        }
+        vm.stopPrank();
+        vm.prank(user1);
+        treeGrowth.wateringTree{value: WATERING_COST}(1);
+
+        vm.expectRevert("already minted next stage token");
+        (, uint256 plantedTimestamp, , uint8 stage, uint16 finalCount) = treeGrowth.getTreeData(1);
+  
+        assertEq(stage, 4, "Tree should be ancient tree");
+    }
+
+
 }

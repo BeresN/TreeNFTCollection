@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
-/*pragma solidity 0.8.30;
+/*// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.30;
 
 import "forge-std/Test.sol";
 import "../src/Whitelist.sol";
@@ -342,3 +342,4 @@ contract WhitelistTest is Test {
         whitelist.removeFromWhitelist(user1);
     }
 }
+*/

@@ -11,16 +11,16 @@ contract TreeGrowthStages is TreeNFTCollection {
     uint256 public constant wateringCooldown = 1 days;
     //nextTokenId = 6, because the sprout nfts are whitelisted to maximum 5 nfts.
     uint8 public nextTokenId = 6;
-    address public initialOwner;
+    address public immutable initialOwner;
 
-    event treeGrowthCalculation(uint256 tokenId, uint8 growthStage, uint16 wateringCount);
+    event treeGrowthCalculation(uint256 tokenId,uint256 plantedTimestamp, uint8 growthStage, uint16 wateringCount);
     event NextStageNFTMinted(address indexed to, uint256 newTokenId);
 
     constructor(address whitelistContract) TreeNFTCollection(whitelistContract) {
         initialOwner = msg.sender;
     }
 
-    function wateringTree(uint256 tokenId) external payable nonReentrant {
+    function wateringTree(uint256 tokenId) external payable  {
         require(ownerOf(tokenId) == msg.sender, "only owner can water the tree");
         TreeData storage tree = treeData[tokenId];
         require(msg.value >= wateringCost, "insufficient payment");
@@ -40,13 +40,13 @@ contract TreeGrowthStages is TreeNFTCollection {
         tree.growthStage = calculatedNewStage;
         require(tree.growthStage != 0, "Tree is withered, revive first");
 
-        emit treeGrowthCalculation(tokenId, tree.growthStage, newWateringCount);
+        emit treeGrowthCalculation(tokenId, tree.plantedTimestamp, tree.growthStage, newWateringCount);
     }
 
     function mintNextStageToken(uint256 tokenId) public payable nonReentrant returns (uint256 newTokenId) {
-        require(ownerOf(tokenId) == msg.sender, "not owner");
+        require(ownerOf(tokenId) == msg.sender, "not a owner");
         TreeData storage tree = treeData[tokenId];
-        require(stageRewardsClaimed[tokenId][tree.growthStage], "already minted next stage token");
+        require(!stageRewardsClaimed[tokenId][tree.growthStage], "already minted next stage token");
 
         newTokenId = nextTokenId++;
         tree.lastWateredTimestamp = 0;
@@ -63,29 +63,31 @@ contract TreeGrowthStages is TreeNFTCollection {
         tree.lastWateredTimestamp = block.timestamp;
         tree.growthStage = 1;
 
-        emit treeGrowthCalculation(tokenId, tree.growthStage, tree.wateringCount);
+        emit treeGrowthCalculation(tokenId,tree.plantedTimestamp, tree.growthStage, tree.wateringCount);
     }
 
     function calculateGrowthStages(uint256 tokenId, uint256 plantedTimestamp, uint16 wateringCount)
         internal
         view
-        returns (uint8 newStage)
+        returns (uint8 newStage) 
     {
         uint256 ageInDays = (block.timestamp - plantedTimestamp) / 1 days;
 
-        if (ageInDays >= 365 && wateringCount >= 100) {
-            newStage = 4; // Ancient tree (1+ year, 100+ waterings)
-        } else if (ageInDays >= 180 && wateringCount >= 50) {
-            newStage = 3; // Mature tree (6+ months, 50+ waterings)
+
+        if (isTreeWithered(tokenId)) {
+            newStage = 0;
+        }
+
+        if (ageInDays >= 120 && wateringCount >= 50) {
+            newStage = 4; // Ancient tree (3+ months, 50+ waterings)
+        } else if (ageInDays >= 60 && wateringCount >= 30) {
+            newStage = 3; // Mature tree (2+ months, 50+ waterings)
         } else if (ageInDays >= 30 && wateringCount >= 15) {
             newStage = 2; // Young tree (1+ month, 15+ waterings)
         } else {
             newStage = 1; // Sapling basic nft
         }
 
-        if (isTreeWithered(tokenId)) {
-            newStage = 0;
-        }
     }
 
     function isTreeWithered(uint256 tokenId) internal view returns (bool) {
@@ -94,6 +96,7 @@ contract TreeGrowthStages is TreeNFTCollection {
         if (tree.lastWateredTimestamp == 0) {
             return false;
         }
-        return (tree.plantedTimestamp + 6 days < tree.lastWateredTimestamp);
+        return (tree.plantedTimestamp + 4 days < tree.lastWateredTimestamp);
     }
+
 }
