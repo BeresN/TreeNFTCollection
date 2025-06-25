@@ -8,8 +8,9 @@ import "./Whitelist.sol";
 
 contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
     enum TreeType {
-        Normal,
-        Snow
+        Summer,
+        Snow,
+        Autumn
     }
 
     mapping(address => bool) public isMinted;
@@ -40,7 +41,7 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
 
     function mint(address to, TreeType treeType) external payable nonReentrant {
         require(whitelist.isWhitelisted(to), "not whitelisted");
-        require(treeType == TreeType.Normal || treeType == TreeType.Snow, "Invalid initial type");
+        require(treeType == TreeType.Summer || treeType == TreeType.Snow || treeType == TreeType.Autumn, "Invalid initial type");
         require(reservedTokensClaimed < maxTokensId, "No more tokens left");
         require(msg.value >= mint_price, "Insufficient funds");
         if (isMinted[to]) revert("Address already minted NFT");
@@ -82,10 +83,10 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(ownerOf(tokenId) != address(0), "Uri query for non-existent token");
-        return string(abi.encodePacked(baseURI, "/", Strings.toString(tokenId), ".json"));
+        return string(abi.encode(baseURI, "/", Strings.toString(tokenId), ".json"));
     }
 
-    function setBaseUri(string memory _baseURI) external onlyOwner {
-        baseURI = _baseURI;
+    function _baseURI() internal pure override returns (string memory) {
+        return "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeiacg6slhqk2rn65o4vqh2idzap27lhw2jq3jde3juol3nujtjyffe";
     }
 }
