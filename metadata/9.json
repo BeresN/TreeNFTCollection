@@ -1,0 +1,19 @@
+{
+    "name": "autumn_sprout",
+    "description": "A unique tree NFT from the Tree NFT Collection",
+    "image": "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeig6euikhh3nhh4bybrgvppgh5bodyheqpolw2i4w45woak4tujpm4/9.png",
+    "attributes": [
+        {
+            "trait_type": "Background",
+            "value": "offwhite"
+        },
+        {
+            "trait_type": "Type",
+            "value": "autumn"
+        },
+        {
+            "trait_type": "Stage",
+            "value": "sprout"
+        }
+    ]
+}

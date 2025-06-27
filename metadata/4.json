@@ -1,0 +1,19 @@
+{
+    "name": "ancient_tree",
+    "description": "A unique tree NFT from the Tree NFT Collection",
+    "image": "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeig6euikhh3nhh4bybrgvppgh5bodyheqpolw2i4w45woak4tujpm4/4.png",
+    "attributes": [
+        {
+            "trait_type": "Background",
+            "value": "red"
+        },
+        {
+            "trait_type": "Type",
+            "value": "summer"
+        },
+        {
+            "trait_type": "Stage",
+            "value": "ancient_tree"
+        }
+    ]
+}

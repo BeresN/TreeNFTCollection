@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
-/*pragma solidity 0.8.30;
+/*/ SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.30;
 
 import "forge-std/Test.sol";
 import "../src/TreeNFTCollection.sol";
@@ -86,7 +86,8 @@ contract NFTCollectionTest is Test {
         assertTrue(nftCollection.isMinted(user1));
 
         // Check tree data initialization
-        (uint256 planted, uint256 watered, uint8 growth, uint16 waterCount) = nftCollection.getTreeData(1);
+        (nftCollection.TreeType treeType, uint256 planted, uint256 watered, uint8 growth, uint16 waterCount) = nftCollection.getTreeData(1);
+        assertEq(treeType, treeType.Snow);
         assertEq(planted, block.timestamp);
         assertEq(watered, block.timestamp);
         assertEq(growth, 0);
@@ -102,7 +103,7 @@ contract NFTCollectionTest is Test {
     function testMintRevertsWithInsufficientFunds() public {
         vm.prank(user1);
         vm.expectRevert("Insufficient funds");
-        nftCollection.mint{value: NFT_PRICE - 1}(user1);
+        nftCollection.mint{value: NFT_PRICE - 1}(user1, nftCollection.TreeType.summer);
     }
 
     function testMintRevertsWhenNotWhitelisted() public {

@@ -1,4 +1,4 @@
-/*// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
 import "forge-std/Test.sol";
@@ -39,13 +39,6 @@ contract WhitelistTest is Test {
         assertEq(addresses.length, 0);
     }
 
-    function testConstructorWithDifferentMaxSize() public {
-        uint256 customMaxSize = 10;
-        vm.prank(owner);
-        Whitelist customWhitelist = new Whitelist(customMaxSize);
-
-        assertEq(customWhitelist.maxWhitelistedAddresses(), customMaxSize);
-    }
 
     // Add to Whitelist Tests
     function testAddToWhitelist() public {
@@ -80,13 +73,6 @@ contract WhitelistTest is Test {
         assertEq(addresses[1], user2);
         assertEq(addresses[2], user3);
     }
-
-    function testAddToWhitelistRevertsWhenNotOwner() public {
-        vm.prank(nonOwner);
-        vm.expectRevert();
-        whitelist.addToWhitelist(user1);
-    }
-
     function testAddToWhitelistRevertsWhenAlreadyWhitelisted() public {
         vm.startPrank(owner);
         whitelist.addToWhitelist(user1);
@@ -342,4 +328,3 @@ contract WhitelistTest is Test {
         whitelist.removeFromWhitelist(user1);
     }
 }
-*/

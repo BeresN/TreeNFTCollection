@@ -15,7 +15,7 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
 
     mapping(address => bool) public isMinted;
     uint256 public constant mint_price = 0.001 ether;
-    uint8 public constant maxTokensId = 2;
+    uint8 public constant maxTokensId = 3;
     uint8 public reservedTokensClaimed = 0;
     Whitelist immutable whitelist;
     string public baseURI;
@@ -83,10 +83,11 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(ownerOf(tokenId) != address(0), "Uri query for non-existent token");
-        return string(abi.encode(baseURI, "/", Strings.toString(tokenId), ".json"));
+        return string(abi.encodePacked(_baseURI(), "/", Strings.toString(tokenId), ".json"));
     }
 
     function _baseURI() internal pure override returns (string memory) {
-        return "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeiacg6slhqk2rn65o4vqh2idzap27lhw2jq3jde3juol3nujtjyffe";
+        return "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeihmyjwqmwilyu6g7bcu76rkoimr7pm6rgsmnryy3yndf4iyjjxbcq";
     }
+    
 }
