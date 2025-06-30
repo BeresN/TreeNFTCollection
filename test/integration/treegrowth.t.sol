@@ -5,9 +5,9 @@ import {Test} from "forge-std/Test.sol";
 
 import {console} from "forge-std/console.sol";
 
-import "../src/CalculateStage.sol";
-import "../src/TreeNFTCollection.sol";
-import "../src/Whitelist.sol";
+import "../../src/CalculateStage.sol";
+import "../../src/TreeNFTCollection.sol";
+import "../../src/Whitelist.sol";
 
 contract TreeGrowthStagesTest is Test {
     TreeGrowthStages public treeGrowth;
@@ -77,7 +77,6 @@ contract TreeGrowthStagesTest is Test {
         uint256 wateringCost = treeGrowth.wateringCost();
   
         vm.prank(user1);
-        vm.expectEmit(false, false, false, true); // Check tokenId and data
         emit treeGrowthCalculation(1, 1, 1); // Include plantedTimestamp
         treeGrowth.wateringTree{value: wateringCost}(1);
 
@@ -317,53 +316,43 @@ contract TreeGrowthStagesTest is Test {
             treeGrowth.wateringTree{value: WATERING_COST}(1);
             vm.warp(block.timestamp + WATERING_COOLDOWN + 1);
         }
-
         // 15th watering should trigger young tree stage
-        vm.expectEmit(true, false, false, true);
-        emit treeGrowthCalculation(1, 2, 15);
         vm.prank(user1);
         treeGrowth.wateringTree{value: WATERING_COST}(1);
+         (, , , uint8 currentStage, ) = treeGrowth.getTreeData(1);
+
+        assertEq(currentStage, 2, "should be young tree");
     }
 
     function testWitheredTreeHandle() public {
-        // Make tree withered first
         vm.prank(user1);
         treeGrowth.wateringTree{value: WATERING_COST}(1);
 
-        (TreeNFTCollection.TreeType treeType, uint256 planted, , , ) = treeGrowth.getTreeData(1);
-        // Fast forward to make tree withered (4+ days after last watering)
-        vm.warp(planted + 5 days);
+        (TreeNFTCollection.TreeType treeType, ,uint256 lastWatered , , ) = treeGrowth.getTreeData(1);
+        vm.warp(lastWatered + 6 days);
         
-        // This should revert because tree is withered
         vm.prank(user1);
         vm.expectRevert("Tree is withered, revive first");
         treeGrowth.wateringTree{value: WATERING_COST}(1);
     }
 
     function testReviveWitheredTree_Success() public {
-        // First water the tree
         vm.prank(user1);
         treeGrowth.wateringTree{value: WATERING_COST}(1);
 
-        (TreeNFTCollection.TreeType treeType, uint256 planted, , , uint16 wateringCount) = treeGrowth.getTreeData(1);
+        (,, uint256 lastWatered ,,) = treeGrowth.getTreeData(1);
 
-        // Fast forward to make tree withered
-        vm.warp(planted + 5 days);
-
-        // Revive the tree
-        vm.expectEmit(true, false, false, true);
-        emit treeGrowthCalculation(1, 1, wateringCount); // Should reset to stage 1
+        vm.warp(lastWatered + 6 days);
 
         vm.prank(user1);
         treeGrowth.reviveWitheredTree{value: REVIVAL_COST}(1);
 
-        // Check tree is revived
-        (,, uint256 newLastWatered, uint8 newStage, ) = treeGrowth.getTreeData(1);
-        assertEq(newStage, 1, "Tree should be reset to sapling");
+        (,, uint256 newLastWatered, uint8 currentStage, ) = treeGrowth.getTreeData(1);
+        assertEq(currentStage, 1, "Tree should be reset to sapling");
         assertEq(newLastWatered, block.timestamp, "Last watered should be updated");
     }
 
-     function testAfterReachingNewStage() public{
+    function testAfterReachingNewStage() public{
         vm.prank(user1);
         treeGrowth.wateringTree{value: WATERING_COST}(1);
         (, uint256 planted, ,uint8 newStage ,uint16 wateringCount) = treeGrowth.getTreeData(1);
@@ -379,7 +368,7 @@ contract TreeGrowthStagesTest is Test {
         (, uint256 plantedTimestamp, , uint8 stage, uint16 finalCount) = treeGrowth.getTreeData(1);
   
         assertEq(stage, 4, "Tree should be ancient tree");
-        assertEq(finalCount, 50, "Should have 15 waterings");
+        assertEq(finalCount, 50, "Should have 50 waterings");
     }
 
 

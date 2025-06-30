@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
 import {TreeNFTCollection} from "./TreeNFTCollection.sol";
@@ -9,6 +9,8 @@ contract TreeGrowthStages is TreeNFTCollection {
 
     uint256 public constant wateringCost = 0.0004 ether;
     uint256 public constant wateringCooldown = 1 days;
+
+    uint256 public constant witherTime = 5 days; 
     //nextTokenId = 6, because the sprout nfts are whitelisted to maximum 5 nfts.
     uint8 public nextTokenId = 6;
     address public immutable initialOwner;
@@ -31,15 +33,15 @@ contract TreeGrowthStages is TreeNFTCollection {
 
         uint16 newWateringCount = tree.wateringCount + 1;
         uint8 calculatedNewStage = calculateGrowthStages(tokenId, tree.plantedTimestamp, newWateringCount);
+        require(calculatedNewStage != 0, "Tree is withered, revive first");
 
         tree.lastWateredTimestamp = block.timestamp;
         tree.wateringCount = newWateringCount;
+
         if (tree.growthStage != calculatedNewStage) {
             mintNextStageToken(tokenId);
         }
         tree.growthStage = calculatedNewStage;
-        require(tree.growthStage != 0, "Tree is withered, revive first");
-
         emit treeGrowthCalculation(tokenId, tree.plantedTimestamp, tree.growthStage, newWateringCount);
     }
 
@@ -71,12 +73,11 @@ contract TreeGrowthStages is TreeNFTCollection {
         view
         returns (uint8 newStage) 
     {
-        uint256 ageInDays = (block.timestamp - plantedTimestamp) / 1 days;
-
-
         if (isTreeWithered(tokenId)) {
-            newStage = 0;
+            return newStage = 0;
+
         }
+        uint256 ageInDays = (block.timestamp - plantedTimestamp) / 1 days;
 
         if (ageInDays >= 120 && wateringCount >= 50) {
             newStage = 4; // Ancient tree (3+ months, 50+ waterings)
@@ -96,7 +97,7 @@ contract TreeGrowthStages is TreeNFTCollection {
         if (tree.lastWateredTimestamp == 0) {
             return false;
         }
-        return (tree.plantedTimestamp + 4 days < tree.lastWateredTimestamp);
+        return (block.timestamp > tree.lastWateredTimestamp + witherTime);
     }
 
 }

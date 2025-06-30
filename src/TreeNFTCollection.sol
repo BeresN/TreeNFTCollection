@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "./Whitelist.sol";
 
 contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
@@ -83,7 +84,24 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(ownerOf(tokenId) != address(0), "Uri query for non-existent token");
-        return string(abi.encodePacked(_baseURI(), "/", Strings.toString(tokenId), ".json"));
+        
+        TreeData storage tree = treeData[tokenId];
+        uint256 metadataId = _calculateMetadataId(tree.treeType, tree.growthStage);
+        
+        return string(abi.encodePacked(_baseURI(), "/", Strings.toString(metadataId), ".json"));
+    }
+    
+    function _calculateMetadataId(TreeType treeType, uint8 growthStage) internal pure returns (uint256) {
+        uint256 baseId;
+        if (treeType == TreeType.Summer) {
+            baseId = 0;
+        } else if (treeType == TreeType.Snow) {
+            baseId = 4;
+        } else if (treeType == TreeType.Autumn) {
+            baseId = 8;
+        }
+        
+        return baseId + growthStage;
     }
 
     function _baseURI() internal pure override returns (string memory) {
