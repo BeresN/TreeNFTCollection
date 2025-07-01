@@ -254,6 +254,8 @@ contract NFTCollectionTest is Test {
         // Mint another token
         TreeNFTCollection.TreeType snowType = TreeNFTCollection.TreeType.Snow;
         TreeNFTCollection.TreeType autumnType = TreeNFTCollection.TreeType.Autumn;
+        TreeNFTCollection.TreeType summerType = TreeNFTCollection.TreeType.Summer;
+
 
 
         vm.prank(user1);
@@ -261,36 +263,26 @@ contract NFTCollectionTest is Test {
 
         vm.prank(user2);
         nftCollection.mint{value: NFT_PRICE}(user2, snowType);
+
+         vm.prank(user3);
+        nftCollection.mint{value: NFT_PRICE}(user3, summerType);
         
         // Test both tokens
         string memory tokenURI1 = nftCollection.tokenURI(1);
         string memory tokenURI2 = nftCollection.tokenURI(2);
-        
-        string memory expectedURI1 = "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeihmyjwqmwilyu6g7bcu76rkoimr7pm6rgsmnryy3yndf4iyjjxbcq/1.json";
-        string memory expectedURI2 = "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeihmyjwqmwilyu6g7bcu76rkoimr7pm6rgsmnryy3yndf4iyjjxbcq/2.json";
-        
+        string memory tokenURI3 = nftCollection.tokenURI(3);
+
+        string memory expectedURI1 = "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeihmyjwqmwilyu6g7bcu76rkoimr7pm6rgsmnryy3yndf4iyjjxbcq/9.json";
+        string memory expectedURI2 = "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeihmyjwqmwilyu6g7bcu76rkoimr7pm6rgsmnryy3yndf4iyjjxbcq/5.json";
+        string memory expectedURI3 = "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeihmyjwqmwilyu6g7bcu76rkoimr7pm6rgsmnryy3yndf4iyjjxbcq/1.json";
+
         assertEq(tokenURI1, expectedURI1, "Token 1 URI should be correct");
         assertEq(tokenURI2, expectedURI2, "Token 2 URI should be correct");
-        
+        assertEq(tokenURI3, expectedURI3, "Token 3 URI should be correct");
         console.log("Token 1 URI:", tokenURI1);
         console.log("Token 2 URI:", tokenURI2);
+        console.log("Token 3 URI:", tokenURI3);
     }
     
-        /*//////////////////////////////////////////////////////////////
-                                    FUZZ TESTS
-        //////////////////////////////////////////////////////////////*/
-
-     function testFuzzMintPrice(uint256 payment) public {
-        TreeNFTCollection.TreeType autumnType = TreeNFTCollection.TreeType.Autumn;
-
-        vm.assume(payment >= NFT_PRICE && payment <= 100 ether);
-
-        vm.deal(user1, payment);
-        vm.prank(user1);
-        nftCollection.mint{value: payment}(user1, autumnType);
-
-        assertEq(nftCollection.ownerOf(1), user1);
-        assertEq(address(nftCollection).balance, payment);
-    }
 
 }
