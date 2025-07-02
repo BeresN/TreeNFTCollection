@@ -14,7 +14,6 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         Autumn
     }
 
-    mapping(address => bool) public isMinted;
     uint256 public constant mint_price = 0.001 ether;
     uint8 public constant maxTokensId = 3;
     uint8 public reservedTokensClaimed = 0;
@@ -29,24 +28,34 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         uint16 wateringCount;
     }
 
+    mapping(address => bool) public isMinted;
     mapping(uint256 => TreeData) public treeData;
 
     event Withdraw(address indexed to, uint256 amount);
     event Mint(address indexed to, uint256 tokenId);
-    event treeInitialized(uint256 tokenId, address indexed owner, uint256 timestamp);
+    event TreeInitialized(
+        uint256 tokenId,
+        address indexed owner,
+        uint256 timestamp
+    );
 
-    constructor(address whitelistContract) ERC721("Tree Collection", "TREE") Ownable(msg.sender) {
+    constructor(
+        address whitelistContract
+    ) ERC721("Tree Collection", "TREE") Ownable(msg.sender) {
         require(whitelistContract != address(0), "Cannot be 0 address");
         whitelist = Whitelist(whitelistContract);
     }
 
     function mint(address to, TreeType treeType) external payable nonReentrant {
         require(whitelist.isWhitelisted(to), "not whitelisted");
-        require(treeType == TreeType.Summer || treeType == TreeType.Snow || treeType == TreeType.Autumn, "Invalid initial type");
+        require(uint8(treeType) < 3, "Invalid initial type");
         require(reservedTokensClaimed < maxTokensId, "No more tokens left");
         require(msg.value >= mint_price, "Insufficient funds");
         if (isMinted[to]) revert("Address already minted NFT");
+
+        // Sequential token IDs (1, 2, 3)
         uint256 tokenId = reservedTokensClaimed + 1;
+
         reservedTokensClaimed++;
         isMinted[to] = true;
 
@@ -59,53 +68,86 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         });
 
         _safeMint(to, tokenId);
-        emit treeInitialized(tokenId, ownerOf(tokenId), block.timestamp);
+        emit TreeInitialized(tokenId, ownerOf(tokenId), block.timestamp);
         emit Mint(to, tokenId);
     }
 
     function withdraw(uint256 amount) external onlyOwner {
         require(msg.sender != address(0), "cannot be address 0");
         require(amount <= address(this).balance, "Insufficient balance");
-        (bool success,) = payable(msg.sender).call{value: amount}("");
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
 
         emit Withdraw(msg.sender, amount);
     }
 
-    function getTreeData(uint256 tokenId)
+    function getTreeData(
+        uint256 tokenId
+    )
         external
         view
-        returns (TreeType treeType, uint256 plantedTimestamp, uint256 lastWateredTimestamp, uint8 growthStage, uint16 wateringCount)
+        returns (
+            TreeType treeType,
+            uint256 plantedTimestamp,
+            uint256 lastWateredTimestamp,
+            uint8 growthStage,
+            uint16 wateringCount
+        )
     {
         require(ownerOf(tokenId) != address(0), "token not minted yet");
         TreeData storage tree = treeData[tokenId];
-        return (tree.treeType, tree.plantedTimestamp, tree.lastWateredTimestamp, tree.growthStage, tree.wateringCount);
+        return (
+            tree.treeType,
+            tree.plantedTimestamp,
+            tree.lastWateredTimestamp,
+            tree.growthStage,
+            tree.wateringCount
+        );
     }
 
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        require(ownerOf(tokenId) != address(0), "Uri query for non-existent token");
-        
+    function tokenURI(
+        uint256 tokenId
+    ) public view override returns (string memory) {
+        require(
+            ownerOf(tokenId) != address(0),
+            "Uri query for non-existent token"
+        );
+
         TreeData storage tree = treeData[tokenId];
-        uint256 metadataId = _calculateMetadataId(tree.treeType, tree.growthStage);
-        
-        return string(abi.encodePacked(_baseURI(), "/", Strings.toString(metadataId), ".json"));
+        uint256 metadataId = _calculateMetadataId(
+            tree.treeType,
+            tree.growthStage
+        );
+
+        return
+            string(
+                abi.encodePacked(
+                    _baseURI(),
+                    "/",
+                    Strings.toString(metadataId),
+                    ".json"
+                )
+            );
     }
-    
-    function _calculateMetadataId(TreeType treeType, uint8 growthStage) internal pure returns (uint256) {
+
+    function _calculateMetadataId(
+        TreeType treeType,
+        uint8 growthStage
+    ) internal pure returns (uint256) {
         uint256 baseId;
         if (treeType == TreeType.Summer) {
-            baseId = 0;
+            baseId = 1; // Summer: 1-4
         } else if (treeType == TreeType.Snow) {
-            baseId = 4;
+            baseId = 5; // Snow: 5-8
         } else if (treeType == TreeType.Autumn) {
-            baseId = 8;
+            baseId = 9; // Autumn: 9-12
         }
-        
-        return baseId + growthStage;
+
+        return baseId + growthStage - 1;
     }
 
     function _baseURI() internal pure override returns (string memory) {
-        return "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeihmyjwqmwilyu6g7bcu76rkoimr7pm6rgsmnryy3yndf4iyjjxbcq";
+        return
+            "https://white-binding-zebra-376.mypinata.cloud/ipfs/bafybeihmyjwqmwilyu6g7bcu76rkoimr7pm6rgsmnryy3yndf4iyjjxbcq";
     }
-    
 }
