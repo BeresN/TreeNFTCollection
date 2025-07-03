@@ -14,7 +14,7 @@ contract DeployScript is Script {
         vm.startBroadcast();
 
         Whitelist whitelist = new Whitelist(5);
-        TreeGrowthStages stages = new TreeGrowthStages(address(whitelist));
+        TreeGrowthStages stages = new TreeGrowthStages(0x4D57E383C0c531BE6249afCe5C5A1390EE67Ca71);
 
         
 

@@ -4,9 +4,8 @@ pragma solidity 0.8.30;
 import {TreeNFTCollection} from "./TreeNFTCollection.sol";
 
 contract TreeGrowthStages is TreeNFTCollection {
-    uint256 public constant wateringCost = 0.0004 ether;
+    uint256 public constant wateringCost = 0.00001 ether;
     uint256 public constant wateringCooldown = 1 days;
-    //time after which the tree is withered
     uint256 public constant witherTime = 5 days;
     address public immutable initialOwner;
 
@@ -49,9 +48,8 @@ contract TreeGrowthStages is TreeNFTCollection {
         tree.wateringCount = newWateringCount;
 
         if (tree.growthStage != calculatedNewStage) {
-            mintNextStageToken(tokenId);
+            mintNextStageToken(tokenId, newWateringCount);
         }
-        tree.growthStage = calculatedNewStage;
         emit TreeGrowthCalculation(
             tokenId,
             tree.plantedTimestamp,
@@ -61,29 +59,28 @@ contract TreeGrowthStages is TreeNFTCollection {
     }
 
     function mintNextStageToken(
-        uint256 tokenId
+        uint256 tokenId,
+        uint16 updatedWateringCount
     ) public payable nonReentrant returns (uint256 newTokenId) {
         require(ownerOf(tokenId) == msg.sender, "not a owner");
-        require(isMinted[msg.sender] == false, "address already minted");
-        isMinted[msg.sender] = true;
 
         TreeData storage originalTree = treeData[tokenId];
         uint8 newStage = calculateGrowthStages(
             tokenId,
             originalTree.plantedTimestamp,
-            originalTree.wateringCount
+            updatedWateringCount
         );
 
         newTokenId = reservedTokensClaimed + 1;
         reservedTokensClaimed++;
 
-        // Set tree data for the new token with same type but new stage
+
         treeData[newTokenId] = TreeData({
             treeType: originalTree.treeType,
             plantedTimestamp: originalTree.plantedTimestamp,
             lastWateredTimestamp: 0,
             growthStage: newStage,
-            wateringCount: originalTree.wateringCount
+            wateringCount: updatedWateringCount
         });
 
         _safeMint(msg.sender, newTokenId);
@@ -128,28 +125,6 @@ contract TreeGrowthStages is TreeNFTCollection {
         } else {
             newStage = 1; // Sapling basic nft
         }
-    }
-
-    function _calculateMetadataIdForNextStage(
-        uint256 tokenId
-    ) public view returns (uint256) {
-        TreeData storage originalTree = treeData[tokenId];
-
-        uint256 baseTokenId;
-        if (originalTree.treeType == TreeType.Summer) {
-            baseTokenId = 1;
-        } else if (originalTree.treeType == TreeType.Snow) {
-            baseTokenId = 5;
-        } else if (originalTree.treeType == TreeType.Autumn) {
-            baseTokenId = 9;
-        }
-        uint256 calculateStage = calculateGrowthStages(
-            tokenId,
-            originalTree.plantedTimestamp,
-            originalTree.wateringCount
-        );
-
-        return baseTokenId + calculateStage - 1;
     }
 
     function isTreeWithered(uint256 tokenId) internal view returns (bool) {

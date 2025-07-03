@@ -14,7 +14,7 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         Autumn
     }
 
-    uint256 public constant mint_price = 0.001 ether;
+    uint256 public constant mint_price = 0.0001 ether;
     uint8 public constant maxTokensId = 3;
     uint8 public reservedTokensClaimed = 0;
     Whitelist immutable whitelist;
@@ -53,7 +53,6 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
         require(msg.value >= mint_price, "Insufficient funds");
         if (isMinted[to]) revert("Address already minted NFT");
 
-        // Sequential token IDs (1, 2, 3)
         uint256 tokenId = reservedTokensClaimed + 1;
 
         reservedTokensClaimed++;
@@ -73,7 +72,6 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
     }
 
     function withdraw(uint256 amount) external onlyOwner {
-        require(msg.sender != address(0), "cannot be address 0");
         require(amount <= address(this).balance, "Insufficient balance");
         (bool success, ) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
@@ -136,11 +134,11 @@ contract TreeNFTCollection is ERC721, ReentrancyGuard, Ownable {
     ) internal pure returns (uint256) {
         uint256 baseId;
         if (treeType == TreeType.Summer) {
-            baseId = 1; // Summer: 1-4
+            baseId = 1; 
         } else if (treeType == TreeType.Snow) {
-            baseId = 5; // Snow: 5-8
+            baseId = 5; 
         } else if (treeType == TreeType.Autumn) {
-            baseId = 9; // Autumn: 9-12
+            baseId = 9; 
         }
 
         return baseId + growthStage - 1;
